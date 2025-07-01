@@ -1,0 +1,5 @@
+# Rangos HSV optimizados
+yellow_lower = np.array([15, 69, 191])
+yellow_upper = np.array([30, 255, 255])
+green_lower = np.array([49, 205, 224])
+green_upper = np.array([179, 254, 255])

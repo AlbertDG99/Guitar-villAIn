@@ -22,8 +22,8 @@ from src.window_calibrator import WindowCalibrator
 from src.guitar_hero_hotkeys import GuitarHeroHotkeySystem
 from src.utils.logger import setup_logger
 from src.monitor_setup import MonitorSetup
-from src.detection_debugger import DetectionDebugger
-from src.reinforcement_trainer import ReinforcementTrainer
+# from src.detection_debugger import DetectionDebugger  # TODO: Reimplementar
+# from src.reinforcement_trainer import ReinforcementTrainer  # TODO: Reimplementar
 from src.ai.dqn_agent import DQNAgent
 from src.utils.config_manager import ConfigManager
 from src.core.note_detector import NoteDetector
@@ -54,10 +54,10 @@ def show_main_menu():
     print("  5. 🧪 Test de sistema completo")
     print()
     print("🧠 INTELIGENCIA ARTIFICIAL:")
-    print("  6. 🎓 Entrenar nuevo modelo IA")
-    print("  7. 📚 Continuar entrenamiento")
-    print("  8. 🧪 Evaluar modelo existente")
-    print("  9. 🎮 Demo con IA entrenada")
+    print("  6. ❌ Entrenar nuevo modelo IA (deshabilitado)")
+    print("  7. ❌ Continuar entrenamiento (deshabilitado)")
+    print("  8. ❌ Evaluar modelo existente (deshabilitado)")
+    print("  9. ❌ Demo con IA entrenada (deshabilitado)")
     print()
     print("🚀 EJECUCIÓN:")
     print("  10. 🚀 EJECUCIÓN CON HOTKEYS")
@@ -113,28 +113,10 @@ def diagnose_detection():
     print("🔬 DIAGNÓSTICO DE DETECCIÓN DE NOTAS")
     print("=" * 40)
     print()
-    print("Este diagnóstico te ayudará a:")
-    print("  • Ver qué notas detecta el sistema")
-    print("  • Ajustar rangos de color HSV")
-    print("  • Verificar la precisión de detección")
-    print("  • Depurar problemas visuales")
+    print("❌ FUNCIÓN TEMPORALMENTE DESHABILITADA")
+    print("El módulo de diagnóstico está siendo reimplementado.")
+    print("Por favor usa el sistema principal con hotkeys (opción 10).")
     print()
-
-    choice = input("¿Iniciar diagnóstico visual? (y/N): ").strip().lower()
-    if choice == 'y':
-        try:
-            debugger = DetectionDebugger()
-            print("\n🚀 Iniciando diagnóstico visual...")
-            print("CONTROLES:")
-            print("  1 - Vista normal    2 - Vista HSV")
-            print("  3 - Máscaras        4 - Contornos")
-            print("  S - Screenshot      ESC - Salir")
-            debugger.run()
-        except ImportError as e:
-            print(f"❌ Error importando componentes de depuración: {e}")
-        except Exception as e:
-            print(f"❌ Error inesperado durante el diagnóstico: {e}")
-
     input("\nPresiona Enter para continuar...")
 
 
@@ -142,19 +124,10 @@ def analyze_image():
     """Analizar imagen específica"""
     print("📊 ANÁLISIS DE IMAGEN ESPECÍFICA")
     print("=" * 35)
-
-    image_path = input("Ruta de la imagen a analizar: ").strip()
-    if image_path:
-        try:
-            debugger = DetectionDebugger()
-            debugger.test_detection_on_image(image_path)
-        except FileNotFoundError:
-            print(f"❌ Error: No se encontró la imagen en '{image_path}'")
-        except Exception as e:
-            print(f"❌ Error inesperado analizando imagen: {e}")
-    else:
-        print("❌ No se especificó ruta de imagen")
-
+    print()
+    print("❌ FUNCIÓN TEMPORALMENTE DESHABILITADA")
+    print("El módulo de análisis está siendo reimplementado.")
+    print()
     input("\nPresiona Enter para continuar...")
 
 
@@ -207,30 +180,10 @@ def train_new_model():
     """Entrenar nuevo modelo de IA"""
     print("🎓 ENTRENAMIENTO DE NUEVO MODELO")
     print("=" * 35)
-
-    try:
-        trainer = ReinforcementTrainer()
-
-        print("\n📋 CONFIGURACIÓN DE ENTRENAMIENTO")
-        episodes = int(input("Número de episodios (default: 100): ") or "100")
-
-        print(f"\n🚀 Iniciando entrenamiento por {episodes} episodios...")
-        print("   ⚠️ Esto puede tomar varias horas")
-        print("   💡 Presiona Ctrl+C para detener")
-
-        confirm = input("\n¿Continuar? (y/N): ").strip().lower()
-        if confirm == 'y':
-            trainer.start_training(episodes)
-        else:
-            print("❌ Entrenamiento cancelado")
-
-    except (ImportError, ModuleNotFoundError) as e:
-        print(f"❌ Error importando entrenador: {e}")
-    except ValueError:
-        print("❌ Error: El número de episodios debe ser un entero.")
-    except Exception as e:
-        print(f"❌ Error inesperado en entrenamiento: {e}")
-
+    print()
+    print("❌ FUNCIÓN TEMPORALMENTE DESHABILITADA")
+    print("El módulo de entrenamiento está siendo reimplementado.")
+    print()
     input("\nPresiona Enter para continuar...")
 
 
