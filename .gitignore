@@ -1,0 +1,149 @@
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# === Virtual Environment ===
+venv/
+env/
+ENV/
+.venv/
+.env/
+
+# === IDE y Editores ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# === Logs ===
+*.log
+logs/
+*.log.*
+game_events.log
+performance.log
+
+# === Configuración Local ===
+config/local_*.ini
+*.local
+.env
+.env.local
+.env.*.local
+
+# === Archivos Temporales ===
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+*.orig
+
+# === Machine Learning ===
+models/*.pth
+models/*.pt
+models/*.pkl
+models/*.h5
+models/*.onnx
+*.model
+checkpoints/
+runs/
+wandb/
+mlruns/
+
+# === Datos ===
+data/raw/
+data/processed/
+data/cache/
+*.npz
+*.npy
+*.csv
+*.json.bak
+
+# === OpenCV y CUDA ===
+opencv_backup_info.txt
+*.cuda
+*.cubin
+*.fatbin
+
+# === Screenshots y Media ===
+screenshots/
+*.png.bak
+*.jpg.bak
+captures/
+recordings/
+
+# === Performance y Profiling ===
+*.prof
+*.profile
+profile_*
+benchmark_*
+perf_*
+
+# === Windows ===
+*.lnk
+*.exe
+*.msi
+*.cab
+*.wim
+*.swm
+*.dwm
+*.esd
+*.msp
+*.msm
+
+# === Sistema ===
+.cache/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# === Jupyter ===
+.ipynb_checkpoints
+*.ipynb
+
+# === Archivos de Configuración Específicos ===
+calibration_*.json
+polygon_config_*.json
+detection_config_*.ini
+
+# === Archivos Grandes ===
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# === Test Coverage ===
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/

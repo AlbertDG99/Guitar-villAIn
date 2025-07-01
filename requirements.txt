@@ -1,0 +1,31 @@
+# Guitar Hero IA - Sistema con Hotkeys
+# =====================================
+# Dependencias para sistema optimizado de doble monitor
+
+# Computer Vision y Procesamiento de Imágenes
+opencv-python>=4.11.0
+numpy>=2.1.0
+Pillow>=11.0.0
+
+# Captura de Pantalla
+mss>=10.0.0
+pyautogui>=0.9.54
+
+# Inteligencia Artificial y Machine Learning
+torch>=2.7.0
+torchvision>=0.22.0
+torchaudio>=2.7.0
+
+# OCR (Reconocimiento de Texto)
+easyocr>=1.7.2
+pytesseract>=0.3.13
+
+# Hotkeys Globales
+keyboard>=0.13.5
+
+# Utilidades del Sistema
+colorama>=0.4.6
+PyYAML>=6.0.2
+
+# Para instalación específica con CUDA 12.8 (RTX 5090):
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128 
