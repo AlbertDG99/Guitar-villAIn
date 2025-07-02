@@ -1,124 +1,176 @@
 #!/usr/bin/env python3
 """
-🎯 VISUALIZADOR DE POLÍGONOS Y DETECCIÓN
+Visualizador de Poligonos y Deteccion
 =======================================
-Visualiza polígonos configurados y detección de notas en tiempo real
+Visualiza poligonos configurados y deteccion de notas en tiempo real
 """
 
 import cv2
 import numpy as np
-import sys
 import time
-from pathlib import Path
-from typing import List, Dict, Tuple
-
-# Agregar el directorio src al path
-sys.path.append(str(Path(__file__).parent.parent))
+from concurrent.futures import ThreadPoolExecutor
+import threading
+from typing import Dict, Tuple
 
 from src.core.screen_capture import ScreenCapture
 from src.utils.config_manager import ConfigManager
+from src.core.score_detector import ScoreDetector
 
 class PolygonVisualizer:
-    """Visualizador de polígonos y detección en tiempo real"""
+    """Visualizador de poligonos, deteccion y score en tiempo real."""
     
     def __init__(self):
-        # Configuración
+        # --- Inicializacion de Componentes ---
         self.config_manager = ConfigManager()
         self.screen_capture = ScreenCapture(self.config_manager)
+        self.score_detector = ScoreDetector()
         
-        # Cargar rangos HSV optimizados desde configuración global
-        yellow_lower, yellow_upper = self.config_manager.get_yellow_hsv_range()
-        green_lower, green_upper = self.config_manager.get_green_hsv_range()
-        
-        self.yellow_hsv = {
-            'lower': np.array(yellow_lower),
-            'upper': np.array(yellow_upper)
-        }
-        
+        # --- Carga de Configuracion ---
+        hsv_ranges = self.config_manager.get_hsv_ranges()
+        self.morphology_params = self.config_manager.get_morphology_params()
+
+        # Acceso directo a los rangos (falla si la config es incorrecta)
+        green_range = hsv_ranges['green']
         self.green_hsv = {
-            'lower': np.array(green_lower),
-            'upper': np.array(green_upper)
+            'lower': np.array([green_range['h_min'], green_range['s_min'], green_range['v_min']]),
+            'upper': np.array([green_range['h_max'], green_range['s_max'], green_range['v_max']])
         }
         
-        # Modo de visualización
-        self.view_mode = 0  # 0=Normal, 1=Máscara Amarilla, 2=Máscara Verde
-        self.view_modes = ["NORMAL", "MÁSCARA AMARILLA", "MÁSCARA VERDE"]
+        yellow_range = hsv_ranges['yellow']
+        self.yellow_hsv = {
+            'lower': np.array([yellow_range['h_min'], yellow_range['s_min'], yellow_range['v_min']]),
+            'upper': np.array([yellow_range['h_max'], yellow_range['s_max'], yellow_range['v_max']])
+        }
         
-        # Cargar polígonos
-        self.load_polygons()
+        self.polygons = self.config_manager.get_note_lane_polygons_relative()
+        self.score_region = self.config_manager.get_score_region()
+
+        # --- Estado y Control ---
+        self.total_green_count = 0
+        self.total_yellow_count = 0
         
-        # Colores para visualización
+        self.fps_counter = 0
+        self.fps_start_time = time.time()
+        self.current_fps = 0
+
+        self.score_thread = None
+        self.last_score_check_time = 0
+        self.score_update_interval = 0.2
+        self.last_known_score = 0
+
+        self.view_mode = 0
+        self.view_modes = ["NORMAL", "MASCARA AMARILLA", "MASCARA VERDE"]
+        
         self.lane_colors = {
-            'S': (0, 255, 0),    # Verde
-            'D': (0, 255, 255),  # Cian
-            'F': (255, 0, 0),    # Azul
-            'J': (255, 0, 255),  # Magenta
-            'K': (0, 128, 255),  # Naranja
-            'L': (128, 255, 0)   # Verde-amarillo
+            'S': (0, 255, 0), 'D': (0, 255, 255), 'F': (255, 0, 0),
+            'J': (255, 0, 255), 'K': (0, 128, 255), 'L': (128, 255, 0)
         }
-    
-    def load_polygons(self):
-        """Cargar polígonos configurados"""
-        try:
-            # Usar polígonos relativos directamente
-            self.polygons = self.config_manager.get_note_lane_polygons_relative()
-            
-            if not self.polygons:
-                # Fallback a polígonos absolutos con conversión
-                original_polygons = self.config_manager.get_note_lane_polygons()
-                
-                # Calcular offset automático
-                all_x = []
-                all_y = []
-                for points in original_polygons.values():
-                    for point in points:
-                        all_x.append(point[0])
-                        all_y.append(point[1])
-                
-                if all_x and all_y:
-                    offset_x = min(all_x)
-                    offset_y = min(all_y)
-                    
-                    # Convertir usando offset
-                    self.polygons = {}
-                    for lane_name, points in original_polygons.items():
-                        converted_points = []
-                        for point in points:
-                            relative_x = point[0] - offset_x
-                            relative_y = point[1] - offset_y
-                            converted_points.append((relative_x, relative_y))
-                        self.polygons[lane_name] = converted_points
-            
-        except Exception as e:
-            self.polygons = {}
-    
+
     def detect_yellow_notes(self, hsv: np.ndarray) -> np.ndarray:
-        """Detectar notas amarillas"""
+        """Detectar notas amarillas usando valores exactos del archivo Plus"""
         mask = cv2.inRange(hsv, self.yellow_hsv['lower'], self.yellow_hsv['upper'])
-        kernel = np.ones((3, 3), np.uint8)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+        
+        # Usar valores EXACTOS del archivo (menos agresivo para amarillo)
+        close_size = max(3, self.morphology_params['close_size'] // 2)
+        dilate_size = max(2, self.morphology_params['dilate_size'] // 2)
+        
+        close_kernel = np.ones((close_size, close_size), np.uint8)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, close_kernel)
+        
+        dilate_kernel = np.ones((dilate_size, dilate_size), np.uint8)
+        mask = cv2.dilate(mask, dilate_kernel, iterations=1)
+        
+        open_kernel = np.ones((3, 3), np.uint8)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, open_kernel)
+        
         return mask
     
     def detect_green_notes(self, hsv: np.ndarray) -> np.ndarray:
-        """Detectar notas verdes"""
+        """Detectar notas verdes usando valores EXACTOS del archivo Plus"""
         mask = cv2.inRange(hsv, self.green_hsv['lower'], self.green_hsv['upper'])
-        kernel = np.ones((4, 4), np.uint8)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((2, 2), np.uint8))
+        
+        # Usar valores EXACTOS tal como los configuraste
+        close_size = self.morphology_params['close_size']  # 20
+        dilate_size = self.morphology_params['dilate_size']  # 15
+        
+        close_kernel = np.ones((close_size, close_size), np.uint8)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, close_kernel)
+        
+        dilate_kernel = np.ones((dilate_size, dilate_size), np.uint8)
+        mask = cv2.dilate(mask, dilate_kernel, iterations=1)
+        
+        open_kernel = np.ones((3, 3), np.uint8)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, open_kernel)
+        
         return mask
     
-    def extract_lane_region(self, frame: np.ndarray, lane_name: str) -> np.ndarray:
-        """Extraer región de un carril usando polígono"""
-        if lane_name not in self.polygons:
-            return np.zeros_like(frame)
-            
-        mask = np.zeros(frame.shape[:2], dtype=np.uint8)
-        points = self.polygons[lane_name]
+    def process_lane_optimized(self, lane_data):
+        """Procesar un carril específico de forma optimizada (para threading)"""
+        lane_name, points, green_contours, yellow_contours = lane_data
+        
+        # Crear máscara del polígono para filtrar contornos
+        mask = np.zeros((self.frame_height, self.frame_width), dtype=np.uint8)
         pts = np.array(points, np.int32)
         cv2.fillPoly(mask, [pts], (255,))
-        return cv2.bitwise_and(frame, frame, mask=mask)
+        
+        lane_results = {
+            'lane_name': lane_name,
+            'green_boxes': [],
+            'yellow_boxes': [],
+            'green_count': 0,
+            'yellow_count': 0
+        }
+        
+        # Procesar contornos verdes
+        for contour in green_contours:
+            area = cv2.contourArea(contour)
+            if self.morphology_params['min_area'] <= area <= self.morphology_params['max_area']:
+                # Verificar si el contorno está dentro del polígono
+                M = cv2.moments(contour)
+                if M["m00"] != 0:
+                    cx = int(M["m10"] / M["m00"])
+                    cy = int(M["m01"] / M["m00"])
+                    
+                    # Verificar si el centro está dentro del polígono
+                    if cv2.pointPolygonTest(pts, (cx, cy), False) >= 0:
+                        x, y, w, h = cv2.boundingRect(contour)
+                        lane_results['green_boxes'].append({
+                            'x': x, 'y': y, 'w': w, 'h': h, 'area': area
+                        })
+                        lane_results['green_count'] += 1
+        
+        # --- OPTIMIZACION DE LOGICA DE JUEGO ---
+        # Si se encuentra una nota verde, no puede haber una amarilla en el
+        # mismo carril y frame. Nos saltamos la busqueda de amarillas.
+        if lane_results['green_count'] > 0:
+            return lane_results
+
+        # Procesar contornos amarillos
+        for contour in yellow_contours:
+            area = cv2.contourArea(contour)
+            if self.morphology_params['min_area'] <= area <= self.morphology_params['max_area']:
+                # Verificar si el contorno está dentro del polígono
+                M = cv2.moments(contour)
+                if M["m00"] != 0:
+                    cx = int(M["m10"] / M["m00"])
+                    cy = int(M["m01"] / M["m00"])
+                    
+                    # Verificar si el centro está dentro del polígono
+                    if cv2.pointPolygonTest(pts, (cx, cy), False) >= 0:
+                        x, y, w, h = cv2.boundingRect(contour)
+                        lane_results['yellow_boxes'].append({
+                            'x': x, 'y': y, 'w': w, 'h': h, 'area': area
+                        })
+                        lane_results['yellow_count'] += 1
+        
+        return lane_results
     
+    def update_score_async(self, score_image: np.ndarray):
+        """Función para ejecutar la detección de score en un hilo separado."""
+        score = self.score_detector.update_score(score_image)
+        if score > self.last_known_score:
+            self.last_known_score = score
+
     def process_frame(self, frame: np.ndarray) -> Tuple[np.ndarray, Dict]:
         """Procesar frame y retornar imagen con visualización"""
         detections = {
@@ -127,18 +179,79 @@ class PolygonVisualizer:
             'lanes': {}
         }
         
-        # Convertir a HSV para máscaras de color
+        # --- PREPARACIÓN Y VISUALIZACIÓN DE MÁSCARAS ---
+        # Determinar el frame de salida según el modo de vista
+        if self.view_mode == 0:  # Modo normal
+            output_frame = frame.copy()
+        else:
+            # Para modos de máscara, hacemos una conversión HSV solo para visualizar
+            hsv_visual_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+            if self.view_mode == 1:  # Máscara amarilla
+                mask = self.detect_yellow_notes(hsv_visual_frame)
+            else:  # Máscara verde
+                mask = self.detect_green_notes(hsv_visual_frame)
+            output_frame = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
+
+        # --- DETECCIÓN OPTIMIZADA CON THREADING ---
+        # 1. UNA SOLA conversión HSV global (muy eficiente)
         hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         
-        # Aplicar máscara según el modo de visualización
-        if self.view_mode == 1:  # Máscara amarilla
-            yellow_mask = cv2.inRange(hsv_frame, self.yellow_hsv['lower'], self.yellow_hsv['upper'])
-            output_frame = cv2.cvtColor(yellow_mask, cv2.COLOR_GRAY2BGR)
-        elif self.view_mode == 2:  # Máscara verde
-            green_mask = cv2.inRange(hsv_frame, self.green_hsv['lower'], self.green_hsv['upper'])
-            output_frame = cv2.cvtColor(green_mask, cv2.COLOR_GRAY2BGR)
-        else:  # Modo normal
-            output_frame = frame.copy()
+        # 2. UNA SOLA detección morfológica global por color
+        green_mask = self.detect_green_notes(hsv_frame)
+        yellow_mask = self.detect_yellow_notes(hsv_frame)
+        
+        # 3. UNA SOLA búsqueda de contornos global por color
+        green_contours, _ = cv2.findContours(green_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        yellow_contours, _ = cv2.findContours(yellow_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        # 4. Preparar datos para threading (compartir contornos globales)
+        lane_tasks = []
+        for lane_name, points in self.polygons.items():
+            if points:
+                lane_tasks.append((lane_name, points, green_contours, yellow_contours))
+        
+        # 5. Procesar carriles en PARALELO usando threading
+        total_green_detections = 0
+        total_yellow_detections = 0
+        
+        if lane_tasks:
+            with ThreadPoolExecutor(max_workers=min(6, len(lane_tasks))) as executor:
+                # Guardar dimensiones del frame para la función optimizada
+                self.frame_height, self.frame_width = frame.shape[:2]
+                
+                # Ejecutar en paralelo
+                future_results = [executor.submit(self.process_lane_optimized, task) for task in lane_tasks]
+                
+                # Recopilar resultados
+                for future in future_results:
+                    result = future.result()
+                    lane_name = result['lane_name']
+                    
+                    # Guardar estadísticas del carril
+                    detections['lanes'][lane_name] = {
+                        'yellow': result['yellow_count'],
+                        'green': result['green_count']
+                    }
+                    
+                    # Acumular totales
+                    total_green_detections += result['green_count']
+                    total_yellow_detections += result['yellow_count']
+                    
+                    # Dibujar cajas en modo normal
+                    if self.view_mode == 0:
+                        # Cajas verdes
+                        for box in result['green_boxes']:
+                            cv2.rectangle(output_frame, (box['x'], box['y']), 
+                                        (box['x'] + box['w'], box['y'] + box['h']), (0, 255, 0), 2)
+                            cv2.putText(output_frame, f"G:{int(box['area'])}", (box['x'], box['y'] - 5),
+                                      cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+                        
+                        # Cajas amarillas
+                        for box in result['yellow_boxes']:
+                            cv2.rectangle(output_frame, (box['x'], box['y']), 
+                                        (box['x'] + box['w'], box['y'] + box['h']), (0, 255, 255), 2)
+                            cv2.putText(output_frame, f"Y:{int(box['area'])}", (box['x'], box['y'] - 5),
+                                      cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
         
         # Dibujar polígonos siempre (en todos los modos)
         for lane_name, points in self.polygons.items():
@@ -151,95 +264,182 @@ class PolygonVisualizer:
             cv2.putText(output_frame, lane_name, tuple(center), 
                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
         
-        # Procesar detecciones por carril (solo en modo normal)
-        if self.view_mode == 0:
-            for lane_name in self.polygons.keys():
-                region = self.extract_lane_region(frame, lane_name)
+        # Actualizar contadores globales
+        detections['yellow'] = total_yellow_detections
+        detections['green'] = total_green_detections
+        self.total_green_count = total_green_detections
+        self.total_yellow_count = total_yellow_detections
+        
+        # --- SCORE DETECTION (in a non-blocking thread) ---
+        current_time = time.time()
+        if self.score_region and (current_time - self.last_score_check_time > self.score_update_interval):
+            if self.score_thread is None or not self.score_thread.is_alive():
+                self.last_score_check_time = current_time
                 
-                if region is None or region.size == 0:
-                    continue
+                # Extraer la ROI (Region of Interest) para el score
+                x = self.score_region['x']
+                y = self.score_region['y']
+                w = self.score_region['width']
+                h = self.score_region['height']
+                score_roi = frame[y:y+h, x:x+w]
                 
-                hsv = cv2.cvtColor(region, cv2.COLOR_BGR2HSV)
-                
-                # Detectar amarillas
-                yellow_mask = self.detect_yellow_notes(hsv)
-                contours_yellow, _ = cv2.findContours(yellow_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                
-                yellow_count = 0
-                for contour in contours_yellow:
-                    area = cv2.contourArea(contour)
-                    if area > 100:
-                        x, y, w, h = cv2.boundingRect(contour)
-                        cv2.rectangle(output_frame, (x, y), (x + w, y + h), (0, 255, 255), 2)
-                        yellow_count += 1
-                
-                # Detectar verdes
-                green_mask = self.detect_green_notes(hsv)
-                contours_green, _ = cv2.findContours(green_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                
-                green_count = 0
-                for contour in contours_green:
-                    area = cv2.contourArea(contour)
-                    if area > 80:
-                        x, y, w, h = cv2.boundingRect(contour)
-                        cv2.rectangle(output_frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                        green_count += 1
-                
-                detections['lanes'][lane_name] = {
-                    'yellow': yellow_count,
-                    'green': green_count
-                }
-                
-                detections['yellow'] += yellow_count
-                detections['green'] += green_count
+                # Lanzar el hilo de detección
+                self.score_thread = threading.Thread(target=self.update_score_async, args=(score_roi,))
+                self.score_thread.start()
+
+        # --- SCORE DRAWING (Every Frame) ---
+        score_roi_config = self.config_manager.get_score_region()
+        if score_roi_config:
+            x = score_roi_config.get('x', 0)
+            y = score_roi_config.get('y', 0)
+            w = score_roi_config.get('width', 0)
+            h = score_roi_config.get('height', 0)
+            
+            # Dibujar SIEMPRE la caja de detección del score
+            cv2.rectangle(output_frame, (x, y), (x + w, y + h), (255, 255, 0), 2)
+            cv2.putText(output_frame, "Score ROI", (x, y - 10), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+            
+            # Dibujar el último score conocido (actualizado en segundo plano)
+            self.draw_score(output_frame)
+        else:
+            # Si no hay config, mostrar un aviso
+            cv2.putText(output_frame, "SCORE ROI NO CONFIGURADA", (20, 120),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+        
+        # AÑADIR CONTADOR SUPERIOR
+        self.add_top_counter(output_frame)
+        
+        # Calcular FPS
+        self.fps_counter += 1
+        elapsed_time = time.time() - self.fps_start_time
+        if elapsed_time >= 1.0:  # Actualizar cada segundo
+            self.current_fps = self.fps_counter / elapsed_time
+            self.fps_counter = 0
+            self.fps_start_time = time.time()
+        
+        # Solo mostrar FPS (esquina inferior derecha)
+        fps_text = f"FPS: {self.current_fps:.1f}"
+        text_size = cv2.getTextSize(fps_text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)[0]
+        
+        # Posición esquina inferior derecha
+        fps_x = output_frame.shape[1] - text_size[0] - 10
+        fps_y = output_frame.shape[0] - 10
+        
+        # Fondo para FPS
+        overlay = output_frame.copy()
+        cv2.rectangle(overlay, (fps_x - 5, fps_y - text_size[1] - 5), 
+                    (fps_x + text_size[0] + 5, fps_y + 5), (0, 0, 0), -1)
+        cv2.addWeighted(overlay, 0.7, output_frame, 0.3, 0, output_frame)
+        
+        # Texto FPS
+        cv2.putText(output_frame, fps_text, (fps_x, fps_y), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
         
         return output_frame, detections
     
+    def add_top_counter(self, frame: np.ndarray):
+        """Añadir contador superior con detecciones en tiempo real"""
+        # Fondo para el contador (parte superior)
+        overlay = frame.copy()
+        cv2.rectangle(overlay, (0, 0), (frame.shape[1], 80), (0, 0, 0), -1)
+        cv2.addWeighted(overlay, 0.8, frame, 0.2, 0, frame)
+        
+        # Texto del contador (sin emojis - OpenCV no los soporta)
+        counter_text = f"VERDES: {self.total_green_count}  |  AMARILLAS: {self.total_yellow_count}"
+        
+        # Calcular posición centrada
+        text_size = cv2.getTextSize(counter_text, cv2.FONT_HERSHEY_SIMPLEX, 1.2, 3)[0]
+        x = (frame.shape[1] - text_size[0]) // 2
+        y = 45
+        
+        # Dibujar texto con sombra
+        cv2.putText(frame, counter_text, (x + 2, y + 2), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 0), 4)  # Sombra
+        cv2.putText(frame, counter_text, (x, y), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255), 3)  # Texto principal
+        
+        # Indicador de configuración activa con valores reales
+        if hasattr(self, 'morphology_params'):
+            # Mostrar valores EXACTOS del archivo
+            green_close = self.morphology_params['close_size']  # 20
+            green_dilate = self.morphology_params['dilate_size']  # 15
+            config_text = f"HSV Plus | V_min: {self.green_hsv['lower'][2]} | Close: {green_close} | Dilate: {green_dilate}"
+        else:
+            config_text = "Configuración estándar"
+        
+        cv2.putText(frame, config_text, (10, 70), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (150, 150, 150), 1)
+    
+    def draw_score(self, frame: np.ndarray):
+        """Dibuja la última puntuación conocida en el frame."""
+        score_text = f"Score: {self.last_known_score}"
+        cv2.putText(frame, score_text, (frame.shape[1] - 250, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+
+    def draw_view_mode(self, frame: np.ndarray):
+        """Dibuja el modo de visualización actual."""
+        mode_text = f"View: {self.view_modes[self.view_mode]}"
+        cv2.putText(frame, mode_text, (10, 60),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
+    
+    def draw_fps(self, frame: np.ndarray):
+        """Dibuja los FPS actuales en el frame."""
+        fps_text = f"FPS: {self.current_fps:.2f}"
+        cv2.putText(frame, fps_text, (10, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
+
     def run(self):
         """Ejecutar visualizador"""
-        print("🎯 VISUALIZADOR INICIADO")
-        print("Controles:")
+        print("\n" + "="*60)
+        print("🎯 POLYGON VISUALIZER PLUS")
+        print("="*60)
+        
+        # Mostrar configuración cargada
+        print("Configuracion HSV y Morfologia cargada desde config.ini:")
+        print(f"  Verde V_min: {self.green_hsv['lower'][2]}")
+        print(f"  Morfologia VERDE: Close={self.morphology_params['close_size']}, Dilate={self.morphology_params['dilate_size']}")
+        print(f"  Morfologia AMARILLA: Close={self.morphology_params['close_size']//2}, Dilate={self.morphology_params['dilate_size']//2}")
+        print(f"  Area de Deteccion: {self.morphology_params['min_area']}-{self.morphology_params['max_area']}")
+        
+        print("\nCONTROLES:")
         print("- 'q': Salir")
         print("- 's': Capturar frame")
         print("- '+': Cambiar vista (Normal → Amarilla → Verde)")
         print("- SPACE: Pausar/Reanudar")
+        print("\nCARACTERÍSTICAS:")
+        print("- Detección por carriles con THREADING optimizado")
+        print("- Una sola conversión HSV + morfología global por frame")
+        print("- Lógica de juego optimizada (si hay verde, no busca amarilla)")
+        print("- Procesamiento paralelo de hasta 6 carriles")
+        print("- Score OCR en hilo separado (no bloqueante)")
+        print("- Contador de FPS en tiempo real")
+        print("="*60)
         
         paused = False
         frame_count = 0
         
         try:
             while True:
+                # si está en pausa, no capturamos nuevo frame
                 if not paused:
                     frame = self.screen_capture.capture_frame()
+
+                if frame is not None:
+                    # Procesar frame principal para detección y score
+                    output_frame, detections = self.process_frame(frame)
                     
-                    if frame is not None:
-                        output_frame, detections = self.process_frame(frame)
-                        
-                        # Información en pantalla
-                        info_lines = [
-                            f"📺 VISTA: {self.view_modes[self.view_mode]}",
-                            f"🟡 {detections['yellow']} 🟢 {detections['green']}",
-                            f"Frame: {frame_count}"
-                        ]
-                        
-                        # Fondo para la información
-                        overlay = output_frame.copy()
-                        cv2.rectangle(overlay, (5, 5), (400, 90), (0, 0, 0), -1)
-                        cv2.addWeighted(overlay, 0.7, output_frame, 0.3, 0, output_frame)
-                        
-                        for i, line in enumerate(info_lines):
-                            y = 25 + (i * 25)
-                            cv2.putText(output_frame, line, (10, y), 
-                                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-                        
-                        frame_count += 1
-                    else:
-                        output_frame = np.zeros((720, 1280, 3), dtype=np.uint8)
-                        cv2.putText(output_frame, "❌ Error de captura", (50, 50), 
-                                   cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-                
-                cv2.imshow("Visualizador de Polígonos", output_frame)
-                
+                    # --- DIBUJAR SUPERPOSICIONES (OVERLAYS) ---
+                    self.add_top_counter(output_frame)
+                    self.draw_fps(output_frame)
+                    self.draw_view_mode(output_frame)
+                    self.draw_score(output_frame)
+
+                    # Mostrar frame procesado
+                    cv2.imshow('Guitar Hero IA - Visualizador', output_frame)
+                else:
+                    print("Frame no capturado, esperando...")
+
                 key = cv2.waitKey(1) & 0xFF
                 if key == ord('q'):
                     break
@@ -258,6 +458,8 @@ class PolygonVisualizer:
             print(f"❌ Error: {e}")
         finally:
             cv2.destroyAllWindows()
+            if self.score_thread and self.score_thread.is_alive():
+                self.score_thread.join()
 
 
 def main():

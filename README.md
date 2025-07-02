@@ -1,18 +1,114 @@
-# 🎸 Guitar Hero IA - Sistema de Detección Optimizado 🤖
+# 🎸 Guitar Hero IA - Sistema de Detección y Visualización
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![OpenCV](https://img.shields.io/badge/OpenCV-4.0+-green.svg)](https://opencv.org/)
+[![OpenCV](https://img.shields.io/badge/OpenCV-4.x-green.svg)](https://opencv.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Sistema avanzado de detección de notas para Guitar Hero con Computer Vision optimizado y HSV Color Filtering. El proyecto incluye calibración avanzada, detección por colores con polígonos optimizados y sistema de hotkeys global.
+Este proyecto es un sistema avanzado de **Computer Vision** para Guitar Hero, enfocado en la detección de notas en tiempo real. La arquitectura actual está altamente optimizada para el **debugging, la visualización y el análisis de rendimiento**, utilizando técnicas de procesamiento de imágenes y concurrencia.
 
-## 🌟 Características Principales
+## ✨ Arquitectura y Filosofía
 
-- **Detección HSV Optimizada**: Sistema de detección por colores HSV con polígonos calibrados para máximo rendimiento
-- **Calibración Avanzada**: Herramientas para calibrar ventana del juego, polígonos y rangos de color HSV
-- **Sistema de Hotkeys**: Control global que funciona sin importar la ventana activa
-- **Detector Híbrido**: HSV Color Filtering + Multithreading (6 workers) para detección súper rápida
-- **Configuración Inteligente**: Sistema que maneja coordenadas absolutas y relativas automáticamente
+El sistema se basa en los siguientes principios:
+
+- **Configuración Centralizada**: Todas las configuraciones (parámetros de captura, rangos de color HSV, polígonos de carril, etc.) residen en un único archivo `config/config.ini`.
+- **"Fail-Fast"**: El gestor de configuración (`ConfigManager`) es estricto. Si una configuración requerida no se encuentra, el programa se detiene inmediatamente para evitar comportamientos inesperados. No existen valores por defecto ocultos.
+- **Modularidad**: El código está organizado en módulos con responsabilidades claras: captura de pantalla, detección de score, gestión de configuración, etc.
+- **Rendimiento**: Se utilizan técnicas como el multithreading para operaciones costosas (análisis de carriles, OCR) y se minimizan las operaciones de procesamiento de imagen para mantener un alto framerate.
+
+## 🛠️ Herramientas Principales
+
+El proyecto ha sido refactorizado para centrarse en herramientas de desarrollo y diagnóstico potentes.
+
+### 1. Visualizador de Detección (`utils/polygon_visualizer.py`)
+
+Esta es la herramienta **principal** del proyecto. Permite visualizar en tiempo real todo el proceso de detección sobre la ventana del juego.
+
+**Funcionalidades:**
+- **Detección en Tiempo Real**: Detecta notas verdes y amarillas usando rangos HSV.
+- **Visualización de Polígonos**: Dibuja los polígonos de cada carril para verificar su posición.
+- **Contadores y Métricas**: Muestra FPS, puntuación actual (vía OCR) y el total de notas detectadas.
+- **Modos de Vista**: Permite alternar entre la vista normal y máscaras de color para depurar la detección.
+- **Optimización de Rendimiento**:
+    - **Procesamiento Concurrente**: Cada carril se analiza en un hilo separado.
+    - **OCR no Bloqueante**: La detección de la puntuación se ejecuta en un hilo aparte para no impactar los FPS.
+
+### 2. Calibrador HSV (`utils/static_hsv_calibrator_plus.py`)
+
+Herramienta avanzada para encontrar los rangos de color HSV y los parámetros de morfología perfectos.
+
+**Funcionalidades:**
+- **Ajuste en Tiempo Real**: Usa sliders para modificar los valores HSV (Hue, Saturation, Value) y los parámetros de las operaciones morfológicas (Close, Dilate).
+- **Previsualización Instantánea**: Muestra el resultado de aplicar los filtros y transformaciones a una imagen estática.
+- **Guardado de Configuración**: Guarda los parámetros optimizados directamente en `config/config.ini`.
+
+## 🚀 Guía de Uso
+
+### 1. Instalación
+```bash
+# 1. Clona el repositorio
+git clone <URL_DEL_REPOSITORIO>
+cd guitar_hero_ia
+
+# 2. (Recomendado) Crea y activa un entorno virtual
+python -m venv venv
+# En Windows:
+venv\Scripts\activate
+# En macOS/Linux:
+# source venv/bin/activate
+
+# 3. Instala las dependencias
+pip install -r requirements.txt
+```
+
+### 2. Flujo de Trabajo para Calibración y Detección
+
+El `config/config.ini` ya viene con valores pre-configurados que deberían funcionar. Si la detección falla, sigue estos pasos:
+
+**Paso 1: Calibrar Colores y Morfología (Si es necesario)**
+
+Si las notas no se detectan correctamente, usa el calibrador avanzado.
+
+```bash
+# Ejecuta el calibrador como un módulo
+python -m utils.static_hsv_calibrator_plus
+```
+Ajusta los sliders hasta que las notas en la previsualización queden completamente blancas y aisladas. Guarda los cambios con la tecla 's'.
+
+**Paso 2: Ejecutar el Visualizador de Detección**
+
+Esta es la herramienta principal para ver el sistema en acción.
+
+```bash
+# Ejecuta el visualizador como un módulo
+python -m utils.polygon_visualizer
+```
+
+**Controles del Visualizador:**
+- `q`: Salir del programa.
+- `v`: Cambiar el modo de visualización (Normal -> Máscara Amarilla -> Máscara Verde).
+
+## 📂 Estructura del Proyecto
+
+```
+guitar_hero_ia/
+├── config/
+│   └── config.ini              # ✅ ÚNICA FUENTE DE VERDAD para la configuración.
+├── data/
+│   └── templates/
+│       └── image.png           # Imagen estática para el calibrador HSV.
+├── src/
+│   ├── core/                   # Módulos centrales de la aplicación.
+│   │   ├── screen_capture.py   # Captura de pantalla optimizada (usa MSS).
+│   │   └── score_detector.py   # Detector de puntuación con OCR (Pytesseract).
+│   └── utils/
+│       └── config_manager.py   # Gestor de configuración estricto ("Fail-Fast").
+├── utils/                      # 🛠️ HERRAMIENTAS DE DESARROLLO INDEPENDIENTES.
+│   ├── polygon_visualizer.py       # VISUALIZADOR PRINCIPAL: Detección en tiempo real.
+│   └── static_hsv_calibrator_plus.py # CALIBRADOR AVANZADO: HSV y Morfología.
+├── requirements.txt            # Dependencias del proyecto.
+└── README.md                   # Esta guía.
+```
+*Nota: Otros scripts como `polygon_calibrator.py`, `window_calibrator.py` y `guitar_hero_main.py` existen pero no forman parte del flujo de trabajo de depuración actual y serán re-integrados o eliminados en futuras refactorizaciones.*
 
 ## 🎯 Método de Detección Actual
 
@@ -35,21 +131,6 @@ El sistema usa **HSV Color Filtering** en lugar de template matching para máxim
 ### 1. Prerrequisitos
 - Python 3.11 o superior
 - Windows 10/11 (sistema de hotkeys optimizado para Windows)
-
-### 2. Instalación
-```bash
-# 1. Clona el repositorio
-git clone https://github.com/tu-usuario/guitar_hero_ia.git
-cd guitar_hero_ia
-
-# 2. Crea y activa un entorno virtual
-python -m venv venv
-# En Windows:
-venv\Scripts\activate
-
-# 3. Instala las dependencias
-pip install -r requirements.txt
-```
 
 ### 3. Ejecución del Sistema
 Para iniciar el sistema completo:
@@ -94,48 +175,6 @@ python src/guitar_hero_main.py
   - **F10**: Cambiar modo de detección
   - **F11**: Toggle información en pantalla
   - **F12**: Parada de emergencia
-
-## 📂 Estructura del Proyecto (Optimizada)
-
-```
-guitar_hero_ia/
-├── config/
-│   └── config.ini              # Configuración principal (regiones, colores, polígonos)
-├── data/
-│   ├── metrics.json            # Métricas del sistema
-│   └── templates/              # Plantillas y screenshots para calibración
-│       ├── yellow_star.png     # Plantilla nota amarilla (referencia)
-│       ├── green_star_start.png # Plantilla inicio nota verde (referencia)
-│       ├── green_star_end.png  # Plantilla fin nota verde (referencia)
-│       └── image.png           # Screenshot para calibración HSV
-├── src/
-│   ├── core/                   # Módulos centrales
-│   │   ├── screen_capture.py   # Captura de pantalla optimizada
-│   │   ├── note_detector.py    # Detector principal de notas
-│   │   ├── input_controller.py # Control de entrada (teclado)
-│   │   ├── timing_system.py    # Sistema de timing
-│   │   └── score_detector.py   # Detector de puntuación
-│   ├── utils/                  # Utilidades del sistema
-│   │   ├── config_manager.py   # Gestor de configuración
-│   │   ├── logger.py          # Sistema de logs
-│   │   └── overlay.py         # Overlay visual
-│   ├── ai/                     # Sistema de IA (en desarrollo)
-│   │   └── dqn_agent.py       # Agente DQN (deshabilitado)
-│   ├── guitar_hero_main.py     # **PUNTO DE ENTRADA PRINCIPAL**
-│   ├── guitar_hero_hotkeys.py  # Sistema de hotkeys
-│   ├── window_calibrator.py    # Calibrador de ventana
-│   ├── note_line_calibrator.py # Calibrador de líneas de notas
-│   ├── hotkey_controller.py    # Controlador de hotkeys
-│   └── monitor_setup.py        # Configuración de monitores
-├── utils/                      # **🛠️ UTILIDADES DE DESARROLLO (LIMPIA)**
-│   ├── polygon_visualizer.py          # **VISUALIZADOR DE POLÍGONOS Y DETECCIÓN**
-│   ├── static_hsv_calibrator.py       # **CALIBRADOR HSV ESTÁTICO (SIN PAUSAR JUEGO)**
-│   ├── check_system_status.py         # Verificador de estado del sistema
-│   └── quick_benchmark.py             # Benchmark rápido de FPS
-├── polygon_calibrator.py       # **CALIBRADOR DE POLÍGONOS**
-├── requirements.txt            # Dependencias
-└── README.md                  # Esta guía
-```
 
 ## 🔧 Sistema de Detección HSV
 

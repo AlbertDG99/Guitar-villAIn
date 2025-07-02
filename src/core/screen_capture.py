@@ -21,6 +21,7 @@ from threading import Lock
 import cv2
 import numpy as np
 import pyautogui
+import configparser
 
 from src.utils.logger import setup_logger
 
@@ -61,25 +62,29 @@ class ScreenCapture:  # pylint: disable=too-many-instance-attributes
     def load_configuration(self):
         """Cargar configuración desde config manager"""
         try:
-            # Configuración de captura
-            self.capture_left = int(self.config.get('CAPTURE', 'game_left', '0'))
-            self.capture_top = int(self.config.get('CAPTURE', 'game_top', '0'))
-            self.capture_width = int(self.config.get('CAPTURE', 'game_width', '1920'))
-            self.capture_height = int(self.config.get('CAPTURE', 'game_height', '1080'))
+            # Configuración de captura (ahora es estricta, sin fallbacks)
+            self.capture_left = self.config.getint('CAPTURE', 'game_left')
+            self.capture_top = self.config.getint('CAPTURE', 'game_top')
+            self.capture_width = self.config.getint('CAPTURE', 'game_width')
+            self.capture_height = self.config.getint('CAPTURE', 'game_height')
 
             # Configuración de monitor
-            self.target_monitor = int(self.config.get('CAPTURE', 'target_monitor', '1'))
-            self.monitor_width = int(self.config.get('CAPTURE', 'monitor_width', '1920'))
-            self.monitor_height = int(self.config.get('CAPTURE', 'monitor_height', '1080'))
+            self.target_monitor = self.config.getint('CAPTURE', 'target_monitor')
+            self.monitor_width = self.config.getint('CAPTURE', 'monitor_width')
+            self.monitor_height = self.config.getint('CAPTURE', 'monitor_height')
 
             # Configuración de rendimiento
-            self.target_fps = int(self.config.get('PERFORMANCE', 'target_fps', '60'))
+            self.target_fps = self.config.getint('CAPTURE', 'fps_limit')
 
-            self.logger.info("✅ Configuración de captura cargada")
+            self.logger.info("Configuracion de captura cargada")
 
-        except (ValueError, KeyError) as error:
-            self.logger.error("❌ Error cargando configuración: %s", error)
-            self.logger.info("🔧 Usando valores por defecto")
+        except (configparser.NoSectionError, configparser.NoOptionError) as error:
+            self.logger.error("Error fatal en config.ini: %s", error)
+            self.logger.error("Asegurese de que la seccion [CAPTURE] y todas sus claves existen.")
+            raise
+        except ValueError as error:
+            self.logger.error("Error fatal: una de las claves de [CAPTURE] no es un numero entero valido: %s", error)
+            raise
 
     def initialize_mss(self):
         """Inicializar MSS para captura rápida"""
