@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Sistema de captura de pantalla optimizado para Guitar Hero
 ========================================================
@@ -21,8 +22,10 @@ import cv2
 import numpy as np
 import pyautogui
 import configparser
+import logging
 
-from src.utils.logger import setup_logger
+# Configuración de logging básica para ver errores
+logging.basicConfig(level=logging.INFO, format='%(asctime)s | %(name)s:%(lineno)d | %(levelname)s | %(message)s')
 
 
 class ScreenCapture:
@@ -30,14 +33,19 @@ class ScreenCapture:
     Maneja la captura de pantalla en un hilo dedicado para un rendimiento máximo.
     Funciona como un productor, capturando frames constantemente en segundo plano.
     """
-    def __init__(self, capture_config: dict):
-        self.logger = setup_logger('ScreenCapture')
-        self.config = capture_config
+    def __init__(self, config_manager):
+        self.logger = logging.getLogger('ScreenCapture')
+        self.config_manager = config_manager
         
-        self.capture_left = int(self.config['left'])
-        self.capture_top = int(self.config['top'])
-        self.capture_width = int(self.config['width'])
-        self.capture_height = int(self.config['height'])
+        capture_config = self.config_manager.get_capture_area_config()
+        if not capture_config:
+            self.logger.error("❌ La configuración de captura está vacía. No se puede iniciar.")
+            raise ValueError("La configuración de captura no puede ser None.")
+            
+        self.capture_left = int(capture_config['left'])
+        self.capture_top = int(capture_config['top'])
+        self.capture_width = int(capture_config['width'])
+        self.capture_height = int(capture_config['height'])
 
         self.latest_frame = np.zeros((self.capture_height, self.capture_width, 3), dtype=np.uint8)
         self.frame_lock = threading.Lock()
@@ -45,15 +53,13 @@ class ScreenCapture:
         self.is_running = False
         self.capture_thread = None
         
-        self.mss_instance = None
-        self.use_mss = self._initialize_mss()
+        self.use_mss = self._check_mss_availability()
 
-    def _initialize_mss(self) -> bool:
-        """Intenta inicializar MSS para captura rápida."""
+    def _check_mss_availability(self) -> bool:
+        """Verifica si MSS está disponible para la captura."""
         try:
             import mss
-            self.mss_instance = mss.mss()
-            self.logger.info("✅ MSS inicializado correctamente para captura en hilo.")
+            self.logger.info("✅ MSS está disponible y se usará para la captura.")
             return True
         except ImportError:
             self.logger.warning("⚠️ MSS no disponible, usando PyAutoGUI (más lento).")
@@ -76,9 +82,6 @@ class ScreenCapture:
         if self.capture_thread and self.capture_thread.is_alive():
             self.capture_thread.join(timeout=1.0)
         
-        if self.use_mss and self.mss_instance:
-            self.mss_instance.close()
-            
         self.logger.info("⏹️ Hilo de captura de pantalla detenido.")
 
     def _capture_loop(self):
@@ -90,24 +93,52 @@ class ScreenCapture:
             'height': self.capture_height
         }
         
+        # --- Lógica de captura con MSS (preferido) ---
+        if self.use_mss:
+            try:
+                import mss
+                with mss.mss() as sct:
+                    self.logger.info("🚀 Captura iniciada con MSS en el hilo.")
+                    while self.is_running:
+                        screenshot = sct.grab(region)
+                        frame = np.array(screenshot)
+                        frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
+                        
+                        if frame.size == 0:
+                            self.logger.warning("⚠️ Frame capturado con MSS está vacío. Saltando.")
+                            continue
+                            
+                        with self.frame_lock:
+                            self.latest_frame = frame
+                        
+                        time.sleep(0.001)
+                return # Termina la ejecución del hilo si el bucle acaba
+            except Exception as e:
+                self.logger.error(f"❌ Error fatal durante la captura con MSS: {e}.")
+                self.is_running = False
+                # No retornamos, para que pueda intentar con PyAutoGUI si sigue corriendo
+        
+        # --- Lógica de captura con PyAutoGUI (fallback) ---
+        if not self.is_running: return # Salir si el hilo fue detenido por un error de MSS
+
+        self.logger.info("🚀 Usando PyAutoGUI para la captura (fallback o método principal).")
         while self.is_running:
             try:
-                if self.use_mss and self.mss_instance:
-                    screenshot = self.mss_instance.grab(region)
-                    frame = np.array(screenshot)
-                    frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
-                else:
-                    screenshot = pyautogui.screenshot(region=(self.capture_left, self.capture_top, self.capture_width, self.capture_height))
-                    frame = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
+                screenshot = pyautogui.screenshot(region=(self.capture_left, self.capture_top, self.capture_width, self.capture_height))
+                frame = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
                 
+                if frame.size == 0:
+                    self.logger.warning("⚠️ Frame capturado con PyAutoGUI está vacío. Saltando.")
+                    continue
+                    
                 with self.frame_lock:
                     self.latest_frame = frame
 
             except Exception as e:
-                self.logger.error(f"Error en el bucle de captura: {e}")
+                self.logger.error(f"❌ Error en el bucle de captura con PyAutoGUI: {e}")
                 self.is_running = False # Detener en caso de error grave
                 break 
-            time.sleep(0.001) # Pequeña pausa para no saturar la CPU al 100%
+            time.sleep(0.001)
 
     def get_latest_frame(self) -> np.ndarray:
         """
@@ -158,26 +189,6 @@ class ScreenCapture:
         """Cleanup al destruir la instancia"""
         self.stop()
 
-    def load_configuration(self):
-        """Cargar configuración desde el diccionario de configuración."""
-        try:
-            self.capture_left = int(self.config['left'])
-            self.capture_top = int(self.config['top'])
-            self.capture_width = int(self.config['width'])
-            self.capture_height = int(self.config['height'])
-
-            self.logger.info("Configuracion de captura cargada: %dx%d en (%d, %d)",
-                             self.capture_width, self.capture_height, 
-                             self.capture_left, self.capture_top)
-
-        except (KeyError, TypeError) as error:
-            self.logger.error("Error fatal en la configuración de captura: %s", error)
-            self.logger.error("Asegúrese de que el diccionario de configuración contiene 'left', 'top', 'width', 'height'.")
-            raise
-        except ValueError as error:
-            self.logger.error("Error fatal: uno de los valores de captura no es un número entero válido: %s", error)
-            raise
-
     def get_monitor_region(self):
         """Obtener región específica del monitor objetivo"""
         try:
@@ -202,10 +213,10 @@ class ScreenCapture:
         self.capture_height = height
 
         # Guardar en configuración
-        self.config.set('CAPTURE', 'game_left', str(left))
-        self.config.set('CAPTURE', 'game_top', str(top))
-        self.config.set('CAPTURE', 'game_width', str(width))
-        self.config.set('CAPTURE', 'game_height', str(height))
+        self.config_manager.config.set('CAPTURE', 'game_left', str(left))
+        self.config_manager.config.set('CAPTURE', 'game_top', str(top))
+        self.config_manager.config.set('CAPTURE', 'game_width', str(width))
+        self.config_manager.config.set('CAPTURE', 'game_height', str(height))
 
         self.logger.info("📐 Región actualizada: %dx%d en (%d, %d)",
                         width, height, left, top)

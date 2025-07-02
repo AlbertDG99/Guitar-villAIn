@@ -18,12 +18,16 @@ class ScoreDetector:
     Mantiene el estado de la puntuación actual y la actualiza.
     """
 
-    def __init__(self):
+    def __init__(self, score_region=None):
         """
-        Inicializa el detector de puntuación con una puntuación inicial de 0.
+        Inicializa el detector de puntuación.
+        
+        Args:
+            score_region (dict, optional): Región de la pantalla donde se encuentra la puntuación.
         """
         self.logger = setup_logger("ScoreDetector")
-        self.current_score = 0  # Regla #3: La puntuación inicial es 0.
+        self.current_score = 0
+        self.region = score_region
         # Configuración de Tesseract:
         # --psm 7: Tratar la imagen como una única línea de texto.
         # -c tessedit_char_whitelist: Aceptar solo estos caracteres.
@@ -48,14 +52,18 @@ class ScoreDetector:
 
         return thresh_image
 
-    def update_score(self, image: np.ndarray) -> int:
+    def update_score(self, frame: np.ndarray) -> int:
         """
-        Toma una imagen del área de la puntuación, detecta el número
-        y actualiza la puntuación interna si es mayor que la actual.
+        Toma el frame completo del juego, recorta la región de la puntuación,
+        detecta el número y actualiza la puntuación interna.
+        """
+        if self.region is None or frame is None or frame.size == 0:
+            return self.current_score
 
-        Devuelve siempre la puntuación más alta registrada hasta el momento.
-        """
-        if image is None or image.size == 0:
+        x, y, w, h = self.region['x'], self.region['y'], self.region['width'], self.region['height']
+        image = frame[y:y+h, x:x+w]
+
+        if image.size == 0:
             return self.current_score
 
         try:

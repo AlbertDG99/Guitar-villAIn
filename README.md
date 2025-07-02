@@ -350,6 +350,39 @@ Al hacer cambios al sistema:
 4. Calibrar colores (si es necesario) con `python utils/static_hsv_calibrator.py`
 5. Documentar cambios en este README
 
+## 🧠 Próximos Pasos: Aprendizaje por Refuerzo (RL)
+
+El objetivo final del proyecto es crear un agente de IA que aprenda a jugar a Guitar Hero de forma autónoma. La base actual de detección y visualización es el "sistema sensorial" de la IA. Los siguientes pasos se centrarán en construir el "cerebro".
+
+### 1. Desarrollar el Entorno (`GuitarHeroEnv`)
+
+Crearemos una clase que actúe como un puente entre la IA y el juego, siguiendo una estructura similar a la de las librerías de RL como `gymnasium`.
+
+- **`reset()`**: Reiniciará el juego (o la canción) y devolverá el estado inicial.
+- **`step(action)`**:
+    - Recibirá una **acción** del agente (ej: "pulsar la tecla F").
+    - Ejecutará la acción en el juego.
+    - Capturará el nuevo frame y detectará el nuevo **estado** (la posición de las notas).
+    - Leerá el cambio en la puntuación para calcular la **recompensa**.
+    - Devolverá `(nuevo_estado, recompensa, finalizado)`.
+
+### 2. Construir el Agente (`DQNAgent`)
+
+Será la IA en sí misma, utilizando un modelo de Deep Q-Network (DQN).
+
+- **Espacio de Estados**: Un vector numérico simple que represente las notas en cada uno de los 6 carriles (ej: `[0, 1, 0, 2, 0, 0]` donde 1=amarillo, 2=verde).
+- **Espacio de Acciones**: Un conjunto de acciones discretas que el agente puede tomar (ej: 7 acciones -> no hacer nada, pulsar S, D, F, J, K, o L).
+- **Red Neuronal (Modelo)**: Una red neuronal que aprenderá a predecir la recompensa futura esperada (Q-value) para cada acción posible dado un estado.
+
+### 3. Implementar el Bucle de Entrenamiento
+
+Un script principal que orquestará la interacción:
+1. El agente observará un **estado** del entorno.
+2. Elegirá una **acción** basada en su política actual (y algo de aleatoriedad para explorar).
+3. El entorno procesará la acción y devolverá un **nuevo estado** y una **recompensa**.
+4. El agente almacenará esta experiencia y la usará para **aprender** y mejorar su red neuronal.
+5. El proceso se repetirá miles de veces hasta que el agente aprenda a maximizar la recompensa (su puntuación).
+
 ---
 
 **🎸 ¡Sistema optimizado para máximo rendimiento con HSV Color Filtering!**

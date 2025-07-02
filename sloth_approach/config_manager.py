@@ -131,26 +131,6 @@ class ConfigManager:
         polygons = self.get_note_lane_polygons()
         return len(polygons) > 0
 
-    def get_score_region(self) -> Optional[Dict[str, int]]:
-        """Obtiene la región de la puntuación (relativa a la ventana de juego)."""
-        if not self.config.has_section('SCORE'):
-            self.logger.warning("No se encontró la sección [SCORE] en config.ini. La detección de score no funcionará.")
-            return None
-        try:
-            # El string se guarda como un diccionario, así que usamos eval de forma segura
-            region_str = self.get('SCORE', 'score_region_relative')
-            region_dict = eval(region_str)
-            # Validar y devolver en formato x, y, width, height
-            return {
-                'x': int(region_dict['left']),
-                'y': int(region_dict['top']),
-                'width': int(region_dict['width']),
-                'height': int(region_dict['height'])
-            }
-        except (configparser.NoOptionError, SyntaxError, NameError, KeyError) as e:
-            self.logger.error(f"Error al leer 'score_region_relative' de config.ini: {e}")
-            return None
-
     def get_combo_region(self) -> Optional[Dict[str, int]]:
         """Obtiene la región del combo (relativa a la ventana de juego)."""
         if not self.config.has_section('COMBO'):
@@ -236,4 +216,4 @@ class ConfigManager:
         return ['s', 'd', 'f', 'j', 'k', 'l']
 
     def get_config(self, section, option, fallback=None):
-        return self.config.get(section, option, fallback=fallback)
+        return self.config.get(section, option, fallback=fallback) 
