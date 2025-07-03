@@ -31,7 +31,7 @@ PyYAML>=6.0.2
 gymnasium>=0.29.1
 
 # Interacción a bajo nivel (para juegos)
-pydirectinput-rgx
+pydirectinput
 
 # Para instalación específica con CUDA 12.8 (RTX 5090):
 # pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128 

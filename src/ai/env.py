@@ -150,7 +150,7 @@ class GuitarHeroEnv(gym.Env):
                     key_name = self.key_bindings[i]
                     scancode = self.scancode_map.get(key_name.lower())
                     if scancode:
-                        pydirectinput.scancode_keyUp(scancode)
+                        pydirectinput.keyUp(key_name)
             self.logger.info("Teclas liberadas correctamente.")
         except Exception as e:
             self.logger.error(f"Error al liberar las teclas: {e}")
@@ -171,10 +171,10 @@ class GuitarHeroEnv(gym.Env):
 
             is_pressed = self.key_states[i] == 1
             if key_action == 1 and not is_pressed:
-                pydirectinput.scancode_keyDown(scancode)
+                pydirectinput.keyDown(key_name)
                 self.key_states[i] = 1
             elif key_action == 0 and is_pressed:
-                pydirectinput.scancode_keyUp(scancode)
+                pydirectinput.keyUp(key_name)
                 self.key_states[i] = 0
 
     def _get_all_detections(self):
