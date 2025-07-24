@@ -1,0 +1,1 @@
+# Módulo Core - Funcionalidades básicas del sistema

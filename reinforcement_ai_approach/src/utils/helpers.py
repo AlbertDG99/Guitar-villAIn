@@ -1,0 +1,71 @@
+import cv2
+import numpy as np
+from typing import List, Tuple
+
+
+def display_actions(window_name, action_vector, key_names):
+    """
+    Displays the action vector in an OpenCV window.
+
+    Args:
+        window_name (str): The name of the OpenCV window.
+        action_vector (list or np.array): The action vector (0: nothing, 1: press, 2: release).
+        key_names (list): The list of corresponding key names.
+    """
+    width = 600
+    height_per_key = 50
+    header_height = 40
+    height = header_height + len(key_names) * height_per_key
+
+    img = np.full((height, width, 3), (20, 20, 20), dtype=np.uint8)
+
+    cv2.putText(img, "AI Action Monitor", (width // 2 - 120, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+
+    for i, (action, key_name) in enumerate(zip(action_vector, key_names)):
+        y_pos = header_height + i * height_per_key
+
+        if action == 1:
+            color = (0, 255, 0)
+            text = "PRESSING"
+        elif action == 2:
+            color = (255, 100, 100)
+            text = "RELEASING"
+        else:
+            color = (80, 80, 80)
+            text = "IDLE"
+
+        cv2.rectangle(img, (10, y_pos + 5), (width - 10,
+                      y_pos + height_per_key - 5), color, -1)
+
+        cv2.putText(img, f"Key: {key_name.upper()}", (20, y_pos + 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
+
+        cv2.putText(img, text, (width - 150, y_pos + 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
+
+    cv2.imshow(window_name, img)
+    cv2.waitKey(1)
+
+
+def is_note_active(frame: np.ndarray, polygon: List[Tuple[int, int]]) -> bool:
+    """
+    Checks if there is any active note within a lane polygon.
+    This is a simplified implementation and can be replaced by a
+    more complex one that uses color detection and contours.
+    """
+    if frame is None or not polygon:
+        return False
+
+    mask = np.zeros(frame.shape[:2], dtype=np.uint8)
+    pts = np.array(polygon, np.int32)
+    cv2.fillPoly(mask, [pts], (255, 255, 255))
+
+    mean_val = cv2.mean(frame, mask=mask)
+
+    brightness_threshold = 50
+
+    if sum(mean_val[:3]) > brightness_threshold:
+        return True
+
+    return False

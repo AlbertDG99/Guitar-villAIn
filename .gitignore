@@ -1,8 +1,12 @@
-# === Python ===
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+
+# C extensions
 *.so
+
+# Distribution / packaging
 .Python
 build/
 develop-eggs/
@@ -16,134 +20,186 @@ parts/
 sdist/
 var/
 wheels/
+pip-wheel-metadata/
 share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
 MANIFEST
 
-# === Virtual Environment ===
-venv/
-env/
-ENV/
-.venv/
-.env/
+# PyInstaller
+*.manifest
+*.spec
 
-# === IDE y Editores ===
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# PEP 582
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# Project specific
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tiff
+*.avi
+*.mp4
+*.mov
+*.wmv
+*.flv
+*.webm
+
+# Model files
+*.pth
+*.pt
+*.ckpt
+*.h5
+*.hdf5
+*.pb
+*.onnx
+
+# Logs
+logs/
+*.log
+
+# Config files with sensitive data
+.env
+.env.local
+.env.production
+
+# IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+
+# OS files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
-# === Logs ===
-*.log
-logs/
-*.log.*
-game_events.log
-performance.log
-
-# === Configuración Local ===
-config/local_*.ini
-*.local
-.env
-.env.local
-.env.*.local
-
-# === Archivos Temporales ===
-tmp/
-temp/
+# Temporary files
 *.tmp
 *.temp
+temp/
+tmp/
+
+# Backup files
 *.bak
 *.backup
 *.old
-*.orig
 
-# === Machine Learning ===
-models/*.pth
-models/*.pt
-models/*.pkl
-models/*.h5
-models/*.onnx
-*.model
+# Screenshots and captures
+screenshots/
+captures/
+*.png
+*.jpg
+*.jpeg
+
+# Training artifacts
+models/
 checkpoints/
 runs/
 wandb/
 mlruns/
 
-# === Datos ===
+# Data files
 data/raw/
 data/processed/
-data/cache/
-*.npz
-*.npy
 *.csv
-*.json.bak
-
-# === OpenCV y CUDA ===
-opencv_backup_info.txt
-*.cuda
-*.cubin
-*.fatbin
-
-# === Screenshots y Media ===
-screenshots/
-*.png.bak
-*.jpg.bak
-captures/
-recordings/
-
-# === Performance y Profiling ===
-*.prof
-*.profile
-profile_*
-benchmark_*
-perf_*
-
-# === Windows ===
-*.lnk
-*.exe
-*.msi
-*.cab
-*.wim
-*.swm
-*.dwm
-*.esd
-*.msp
-*.msm
-
-# === Sistema ===
-.cache/
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# === Jupyter ===
-.ipynb_checkpoints
-*.ipynb
-
-# === Archivos de Configuración Específicos ===
-calibration_*.json
-polygon_config_*.json
-detection_config_*.ini
-
-# === Archivos Grandes ===
-*.zip
-*.tar.gz
-*.rar
-*.7z
-
-# === Test Coverage ===
-.coverage
-.coverage.*
-coverage.xml
-*.cover
-.hypothesis/
-.pytest_cache/
+*.json
+*.xml
+*.yaml
+*.yml

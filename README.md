@@ -1,388 +1,253 @@
-# 🎸 Guitar Hero IA - Sistema de Detección y Visualización
+# 🎸 Guitar Hero AI - Personal Research Project
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![OpenCV](https://img.shields.io/badge/OpenCV-4.x-green.svg)](https://opencv.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Este proyecto es un sistema avanzado de **Computer Vision** para Guitar Hero, enfocado en la detección de notas en tiempo real. La arquitectura actual está altamente optimizada para el **debugging, la visualización y el análisis de rendimiento**, utilizando técnicas de procesamiento de imágenes y concurrencia.
+This is a **personal research project** exploring two different approaches to solve the same problem: real-time note detection in Guitar Hero using Computer Vision and AI techniques. The goal is to learn and experiment with different technologies and methodologies.
 
-## ✨ Arquitectura y Filosofía
+## 🎯 **Two Independent Research Approaches**
 
-El sistema se basa en los siguientes principios:
+### **1. Color Pattern Approach** (`color_pattern_approach/`)
+- **Purpose**: Real-time note detection and automatic key pressing
+- **Technology**: Computer Vision + HSV Color Filtering
+- **Learning Focus**: Computer Vision, Real-time Processing, Multi-threading
+- **Status**: ✅ **Fully Functional**
 
-- **Configuración Centralizada**: Todas las configuraciones (parámetros de captura, rangos de color HSV, polígonos de carril, etc.) residen en un único archivo `config/config.ini`.
-- **"Fail-Fast"**: El gestor de configuración (`ConfigManager`) es estricto. Si una configuración requerida no se encuentra, el programa se detiene inmediatamente para evitar comportamientos inesperados. No existen valores por defecto ocultos.
-- **Modularidad**: El código está organizado en módulos con responsabilidades claras: captura de pantalla, detección de score, gestión de configuración, etc.
-- **Rendimiento**: Se utilizan técnicas como el multithreading para operaciones costosas (análisis de carriles, OCR) y se minimizan las operaciones de procesamiento de imagen para mantener un alto framerate.
+### **2. Reinforcement AI Approach** (`reinforcement_ai_approach/`)
+- **Purpose**: AI agent that learns to play Guitar Hero autonomously
+- **Technology**: Deep Q-Learning (DQN) + Computer Vision
+- **Learning Focus**: Reinforcement Learning, Neural Networks, Gymnasium
+- **Status**: 🔬 **Research & Development**
 
-## 🛠️ Herramientas Principales
+Both approaches are **completely independent** and represent different learning paths for the same problem.
 
-El proyecto ha sido refactorizado para centrarse en herramientas de desarrollo y diagnóstico potentes.
+## ✨ Research Goals and Philosophy
 
-### 1. Visualizador de Detección (`utils/polygon_visualizer.py`)
+This project explores:
 
-Esta es la herramienta **principal** del proyecto. Permite visualizar en tiempo real todo el proceso de detección sobre la ventana del juego.
+- **Computer Vision**: Real-time image processing and color detection
+- **Performance Optimization**: Multi-threading, micro-image processing, FPS optimization
+- **Machine Learning**: Deep Q-Networks, experience replay, neural network architectures
+- **System Design**: Modular architecture, configuration management, error handling
+- **Real-time Systems**: Screen capture, input simulation, concurrent processing
 
-**Funcionalidades:**
-- **Detección en Tiempo Real**: Detecta notas verdes y amarillas usando rangos HSV.
-- **Visualización de Polígonos**: Dibuja los polígonos de cada carril para verificar su posición.
-- **Contadores y Métricas**: Muestra FPS, puntuación actual (vía OCR) y el total de notas detectadas.
-- **Modos de Vista**: Permite alternar entre la vista normal y máscaras de color para depurar la detección.
-- **Optimización de Rendimiento**:
-    - **Procesamiento Concurrente**: Cada carril se analiza en un hilo separado.
-    - **OCR no Bloqueante**: La detección de la puntuación se ejecuta en un hilo aparte para no impactar los FPS.
+## 🛠️ Research Tools and Experiments
 
-### 2. Calibrador HSV (`utils/static_hsv_calibrator_plus.py`)
+### 1. Detection Visualizer (`utils/polygon_visualizer.py`)
 
-Herramienta avanzada para encontrar los rangos de color HSV y los parámetros de morfología perfectos.
+Real-time visualization of the detection process over the game window.
 
-**Funcionalidades:**
-- **Ajuste en Tiempo Real**: Usa sliders para modificar los valores HSV (Hue, Saturation, Value) y los parámetros de las operaciones morfológicas (Close, Dilate).
-- **Previsualización Instantánea**: Muestra el resultado de aplicar los filtros y transformaciones a una imagen estática.
-- **Guardado de Configuración**: Guarda los parámetros optimizados directamente en `config/config.ini`.
+**Research Features:**
+- **Real-Time Detection**: HSV-based note detection with configurable ranges
+- **Polygon Visualization**: Custom detection areas for each lane
+- **Performance Metrics**: FPS monitoring and detection accuracy
+- **View Modes**: Multiple visualization modes for debugging
+- **Concurrent Processing**: Multi-threaded lane analysis
 
-## 🚀 Guía de Uso
+### 2. HSV Calibrator (`utils/static_hsv_calibrator_plus.py`)
 
-### 1. Instalación
+Interactive tool for experimenting with HSV color ranges and morphological operations.
+
+**Research Features:**
+- **Real-Time Adjustment**: Interactive sliders for HSV parameters
+- **Instant Preview**: Live feedback on parameter changes
+- **Morphological Operations**: Experimentation with image processing techniques
+- **Configuration Management**: Automatic saving of optimized parameters
+
+## 🚀 Installation and Setup
+
+### Prerequisites
+- Python 3.11 or higher
+- Windows 10/11 (optimized for Windows input simulation)
+
+### Quick Setup
+
+#### Color Pattern Approach
 ```bash
-# 1. Clona el repositorio
-git clone <URL_DEL_REPOSITORIO>
-cd guitar_hero_ia
-
-# 2. (Recomendado) Crea y activa un entorno virtual
-python -m venv venv
-# En Windows:
-venv\Scripts\activate
-# En macOS/Linux:
-# source venv/bin/activate
-
-# 3. Instala las dependencias
+# Clone and setup
+git clone <REPOSITORY_URL>
+cd guitar_hero_ia/color_pattern_approach
 pip install -r requirements.txt
+
+# Run the main experiment
+python color_pattern_visualizer.py
 ```
 
-### 2. Flujo de Trabajo para Calibración y Detección
-
-El `config/config.ini` ya viene con valores pre-configurados que deberían funcionar. Si la detección falla, sigue estos pasos:
-
-**Paso 1: Calibrar Colores y Morfología (Si es necesario)**
-
-Si las notas no se detectan correctamente, usa el calibrador avanzado.
-
+#### Reinforcement AI Approach
 ```bash
-# Ejecuta el calibrador como un módulo
-python -m utils.static_hsv_calibrator_plus
-```
-Ajusta los sliders hasta que las notas en la previsualización queden completamente blancas y aisladas. Guarda los cambios con la tecla 's'.
+# Setup AI research environment
+cd guitar_hero_ia/reinforcement_ai_approach
+pip install -r requirements.txt
 
-**Paso 2: Ejecutar el Visualizador de Detección**
-
-Esta es la herramienta principal para ver el sistema en acción.
-
-```bash
-# Ejecuta el visualizador como un módulo
-python -m utils.polygon_visualizer
+# Start training experiment
+python train.py
 ```
 
-**Controles del Visualizador:**
-- `q`: Salir del programa.
-- `v`: Cambiar el modo de visualización (Normal -> Máscara Amarilla -> Máscara Verde).
+## 📸 Research Demonstrations
 
-## 📂 Estructura del Proyecto
+*Note: Screenshots and GIFs would be added here to show the research results*
+
+### 🎯 Real-time Detection Experiments
+- **Performance**: 47.5 FPS average with HSV filtering
+- **Accuracy**: Real-time note detection with configurable sensitivity
+- **Optimization**: 44.2% area reduction using custom polygons
+
+### 🧠 AI Learning Experiments
+- **Architecture**: Dueling DQN with prioritized experience replay
+- **Training**: Autonomous learning through trial and error
+- **Metrics**: Reward progression and learning curves
+
+### 🛠️ Calibration and Debugging Tools
+- **HSV Calibration**: Interactive color range optimization
+- **Polygon Visualization**: Real-time detection area monitoring
+- **Performance Analysis**: FPS and accuracy metrics
+
+## 📂 Project Structure
 
 ```
 guitar_hero_ia/
-├── config/
-│   └── config.ini              # ✅ ÚNICA FUENTE DE VERDAD para la configuración.
+├── color_pattern_approach/          # Computer Vision Research
+│   ├── color_pattern_visualizer.py  # Main detection experiment
+│   ├── config_manager.py           # Configuration system
+│   ├── screen_capture.py           # Optimized capture system
+│   ├── config.ini                  # Experiment parameters
+│   ├── requirements.txt            # Dependencies
+│   └── README.md                   # Research documentation
+│
+├── reinforcement_ai_approach/       # AI Research
+│   ├── src/
+│   │   ├── ai/
+│   │   │   ├── dqn_agent.py        # Deep Q-Network implementation
+│   │   │   └── env.py              # Gymnasium environment
+│   │   ├── core/
+│   │   │   ├── combo_detector.py   # OCR-based combo detection
+│   │   │   ├── score_detector.py   # Score detection system
+│   │   │   └── screen_capture.py   # Screen capture for AI
+│   │   └── utils/
+│   │       ├── config_manager.py   # Configuration management
+│   │       ├── helpers.py          # Utility functions
+│   │       └── logger.py           # Logging system
+│   ├── utils/
+│   │   ├── polygon_visualizer.py   # Detection visualization
+│   │   └── static_hsv_calibrator_plus.py # HSV calibration
+│   ├── config/
+│   │   └── config.ini              # AI experiment parameters
+│   ├── train.py                    # Training experiment
+│   ├── combo_calibrator.py         # Calibration tool
+│   ├── requirements.txt            # AI dependencies
+│   └── README.md                   # AI research documentation
+│
 ├── data/
 │   └── templates/
-│       └── image.png           # Imagen estática para el calibrador HSV.
-├── src/
-│   ├── core/                   # Módulos centrales de la aplicación.
-│   │   ├── screen_capture.py   # Captura de pantalla optimizada (usa MSS).
-│   │   └── score_detector.py   # Detector de puntuación con OCR (Pytesseract).
-│   └── utils/
-│       └── config_manager.py   # Gestor de configuración estricto ("Fail-Fast").
-├── utils/                      # 🛠️ HERRAMIENTAS DE DESARROLLO INDEPENDIENTES.
-│   ├── polygon_visualizer.py       # VISUALIZADOR PRINCIPAL: Detección en tiempo real.
-│   └── static_hsv_calibrator_plus.py # CALIBRADOR AVANZADO: HSV y Morfología.
-├── requirements.txt            # Dependencias del proyecto.
-└── README.md                   # Esta guía.
+│       └── image.png               # Calibration template
+│
+├── lanzar_color_pattern.bat        # Quick start script
+├── todo_list.md                    # Research progress tracking
+└── README.md                       # This overview
 ```
-*Nota: Otros scripts como `polygon_calibrator.py`, `window_calibrator.py` y `guitar_hero_main.py` existen pero no forman parte del flujo de trabajo de depuración actual y serán re-integrados o eliminados en futuras refactorizaciones.*
 
-## 🎯 Método de Detección Actual
+## 🎯 Research Methodology
 
-El sistema usa **HSV Color Filtering** en lugar de template matching para máximo rendimiento:
+### **Computer Vision Approach**
+1. **HSV Color Filtering**: Real-time color detection instead of template matching
+2. **Micro-image Processing**: Processing only relevant screen areas for performance
+3. **Multi-threading**: Parallel lane analysis to maintain high FPS
+4. **Polygon Optimization**: Custom detection areas reducing processing by 44.2%
 
-### **Detección por Colores HSV**
-- **🟡 Notas Amarillas**: HSV [15,100,100] - [40,255,255]
-- **🟢 Notas Verdes**: HSV [25,40,40] - [95,255,255] (calibrable)
-- **Multithreading**: 6 workers simultáneos (uno por carril)
-- **Rendimiento**: ~47.5 FPS promedio (⭐⭐⭐ EXCELENTE)
+### **AI Approach**
+1. **Deep Q-Network**: Neural network learning optimal actions
+2. **Experience Replay**: Storing and replaying past experiences
+3. **Prioritized Sampling**: Focusing on important experiences
+4. **Dueling Architecture**: Separating value and advantage estimation
 
-### **¿Por qué HSV y no Template Matching?**
-- ✅ **10x más rápido** que buscar imágenes PNG
-- ✅ **Funciona con diferentes estilos** de notas
-- ✅ **Menor uso de CPU y memoria**
-- ✅ **Calibrable en tiempo real**
+## 📊 Research Results
 
-## 🚀 Guía de Inicio Rápido
+### **Performance Metrics**
+- **FPS**: 47.5 average (excellent for real-time processing)
+- **Detection Accuracy**: Configurable sensitivity for different scenarios
+- **Memory Usage**: Optimized for minimal resource consumption
+- **CPU Utilization**: Efficient multi-threading implementation
 
-### 1. Prerrequisitos
-- Python 3.11 o superior
-- Windows 10/11 (sistema de hotkeys optimizado para Windows)
+### **Technical Achievements**
+- **HSV vs Template Matching**: 10x faster performance
+- **Area Optimization**: 44.2% reduction in processing area
+- **Real-time Processing**: Sub-21ms frame processing
+- **Modular Architecture**: Independent, reusable components
 
-### 3. Ejecución del Sistema
-Para iniciar el sistema completo:
+## 🔧 Experimentation Guide
+
+### **Color Pattern Experiments**
 ```bash
-python src/guitar_hero_main.py
+# Run main detection experiment
+cd color_pattern_approach
+python color_pattern_visualizer.py
+
+# Calibrate HSV ranges
+python -m utils.static_hsv_calibrator_plus
+
+# Quick performance test
+python quick_benchmark.py
 ```
 
-## 📋 Flujo de Trabajo Recomendado
-
-### Paso 1: Calibrar la Ventana del Juego (Opción 1)
-- **¿Qué hace?**: Define exactamente dónde está ubicada la ventana de Guitar Hero
-- **¿Cómo?**: Abre Guitar Hero, selecciona opción 1 del menú, haz clic y arrastra para seleccionar el área de juego
-- **Importancia**: **CRÍTICO** - Sin calibración correcta nada funcionará
-
-### Paso 2: Calibrar Polígonos de Detección
-- **¿Qué hace?**: Define áreas precisas donde detectar notas en cada carril
-- **¿Cómo?**: Ejecuta el calibrador de polígonos:
-  ```bash
-  python polygon_calibrator.py
-  ```
-- **Proceso**: 
-  - Haz clic en 4 puntos por carril para definir el área de detección
-  - Los polígonos se optimizan para máximo rendimiento
-  - Se guardan automáticamente en `config/config.ini`
-
-### Paso 3: Calibrar Colores HSV (Nuevo)
-- **¿Qué hace?**: Ajusta los rangos de color para detectar notas amarillas y verdes
-- **¿Cómo?**: Ejecuta el calibrador de colores:
-  ```bash
-  # Calibración estática (recomendado - no pausa el juego)
-  python utils/static_hsv_calibrator.py
-  ```
-- **Proceso**:
-  - Usa sliders para ajustar rangos HSV 
-  - Calibración estática usa screenshot fijo
-  - Se guardan automáticamente en configuración global
-
-### Paso 4: Ejecutar Sistema (Opción 10)
-- **¿Qué hace?**: Inicia el sistema de detección con hotkeys globales
-- **Hotkeys Disponibles**:
-  - **F9**: Iniciar/Detener detección
-  - **F10**: Cambiar modo de detección
-  - **F11**: Toggle información en pantalla
-  - **F12**: Parada de emergencia
-
-## 🔧 Sistema de Detección HSV
-
-### **Polígonos Optimizados ✅**
-El sistema usa polígonos calibrados manualmente para máximo rendimiento:
-- **Reducción de área**: Hasta 54% menos área de procesamiento por carril
-- **Coordenadas relativas**: Manejo inteligente de coordenadas absolutas vs relativas
-- **Calibración interactiva**: Herramienta visual para definir áreas exactas
-- **Estado actual**: **6 polígonos perfectamente posicionados** 
-
-### **Detección HSV de 2 Colores**
-1. **🟡 Notas Amarillas**: `[15,100,100] - [40,255,255]` (optimizado)
-2. **🟢 Notas Verdes**: `[25,40,40] - [95,255,255]` (calibrable)
-
-### **Configuración de Polígonos**
-```ini
-[LANE_POLYGON_S]
-point_0_x = 165
-point_0_y = 585
-point_1_x = 293
-point_1_y = 691
-point_2_x = 503
-point_2_y = 535
-point_3_x = 370
-point_3_y = 444
-point_count = 4
-```
-
-## 🛠️ Utilidades de Desarrollo (Limpia)
-
-### **Scripts Disponibles (Solo Esenciales)**
-
-#### 🎨 **Calibrador HSV Estático** (`static_hsv_calibrator.py`) - ⭐ RECOMENDADO
+### **AI Experiments**
 ```bash
-python utils/static_hsv_calibrator.py
-```
-- **Calibración sin pausar el juego** usando screenshot estático
-- **Sliders HSV interactivos** para ajustar rangos amarillo/verde
-- **3 modos de visualización**: Original, Máscara amarilla, Máscara verde
-- **Click para información de píxel** (valores HSV exactos)
-- **Guardado automático** de rangos optimizados
-- **Controles**:
-  - Click: Info píxel HSV
-  - 's': Guardar rangos
-  - 'r': Reset valores por defecto
-  - 'q': Salir
+# Start training experiment
+cd reinforcement_ai_approach
+python train.py
 
-#### 🎯 **Visualizador de Polígonos** (`polygon_visualizer.py`) - ⭐ PRINCIPAL
-```bash
-python utils/polygon_visualizer.py
-```
-- **Visualización de polígonos** configurados sobre el juego en tiempo real
-- **3 modos de vista**: Normal, Máscara amarilla, Máscara verde
-- **Detección automática** usando rangos HSV optimizados globales
-- **Conteo de notas** amarillas/verdes por carril
-- **Sin calibración** - usa valores guardados automáticamente
-- **Controles**:
-  - 'q': Salir
-  - 's': Capturar frame
-  - '+': Cambiar vista (Normal → Amarilla → Verde)
-  - SPACE: Pausar/Reanudar
+# Calibrate detection regions
+python combo_calibrator.py
 
-#### 🔍 **Verificador de Sistema** (`check_system_status.py`)
-```bash
-python utils/check_system_status.py
-```
-- Diagnóstico completo de configuración
-- Verificación de polígonos y plantillas
-- Test de componentes del sistema
-- Benchmark integrado
-
-#### ⚡ **Benchmark Rápido** (`quick_benchmark.py`)
-```bash
-python utils/quick_benchmark.py
-```
-- Medición pura de rendimiento (sin GUI)
-- Opciones de 5s, 10s o 30s
-- Evaluación automática de performance
-
-## 🚀 Casos de Uso Comunes
-
-### ⭐ **Flujo Rápido Diario (RECOMENDADO)**
-```bash
-# 1. Verificar estado general
-python utils/check_system_status.py
-
-# 2. Ver polígonos y detección en tiempo real
-python utils/polygon_visualizer.py
-
-# 3. Benchmark rápido  
-python utils/quick_benchmark.py
-```
-
-### 🎨 **Calibración de Colores HSV (Solo cuando sea necesario)**
-```bash
-# Calibración estática (RECOMENDADO - no pausa el juego)
-python utils/static_hsv_calibrator.py
-# Los valores se guardan automáticamente en configuración global
-```
-
-### 🎯 **Verificar Configuración de Polígonos**
-```bash
-# Verificar posicionamiento visual y detección
+# Visualize detection
 python utils/polygon_visualizer.py
 ```
 
-### 📊 **Medir Rendimiento**
-```bash
-# Benchmark sin GUI para máximo rendimiento
-python utils/quick_benchmark.py
-```
+## 📝 Research Notes
 
-## 📈 Métricas de Referencia - ✅ ESTADO ACTUAL OPTIMIZADO
+### **Key Learnings**
+- **HSV Color Filtering**: Superior performance over template matching
+- **Multi-threading**: Essential for real-time computer vision
+- **Configuration Management**: Critical for reproducible experiments
+- **Error Handling**: Robust systems require comprehensive error management
 
-### 🎯 FPS Objetivo vs. Actual
-- **⭐ ACTUAL**: **47.5 FPS** (~21ms/frame) - ⭐⭐⭐ EXCELENTE
-- **Método**: HSV Color Filtering + Multithreading
-- **Excelente**: 30+ FPS (≤33ms/frame) ✅ **SUPERADO**
-- **Bueno**: 20-30 FPS (33-50ms/frame)
-- **Aceptable**: 10-20 FPS (50-100ms/frame)
-- **Pobre**: <10 FPS (>100ms/frame)
+### **Technical Challenges**
+- **Real-time Performance**: Balancing accuracy with speed
+- **Color Calibration**: Adapting to different game versions
+- **Input Simulation**: Reliable key pressing without detection
+- **AI Training**: Stable learning in complex environments
 
-### 🔍 Áreas de Polígonos Optimizadas ✅ CONFIGURADO
-- **Total actual**: **237,710 px²**
-- **Reducción**: **44.2%** vs. configuración original
-- **Carriles**: **6 configurados** (S, D, F, J, K, L)
-- **Estado**: **✅ Polígonos perfectamente posicionados**
+## 🧠 Future Research Directions
 
-### 🎨 Detección HSV Optimizada ✅ NUEVO
-- **Amarillas**: **Detecta perfectamente** con `[15,100,100] - [40,255,255]`
-- **Verdes**: **Calibrable** con `[25,40,40] - [95,255,255]`
-- **Método**: **HSV Color Filtering** (10x más rápido que template matching)
-- **Multithreading**: **6 workers simultáneos**
+### **Short Term**
+- [ ] Enhanced note detection algorithms
+- [ ] Improved AI training stability
+- [ ] Additional calibration tools
+- [ ] Performance benchmarking suite
 
-### 📊 Configuraciones de Rendimiento Disponibles
-- **🏎️ Velocidad Máxima**: HSV filtering + threshold altos
-- **⚖️ Equilibrado**: Detecta la mayoría de notas (recomendado)
-- **🎯 Precisión Máxima**: Detecta todas las notas posibles
+### **Medium Term**
+- [ ] Advanced AI models (Transformer-based)
+- [ ] Multi-game support research
+- [ ] Web-based experiment interface
+- [ ] Comprehensive testing framework
 
-## 🔧 Personalización
+### **Long Term**
+- [ ] Real-time multiplayer AI competitions
+- [ ] Advanced AI with human-like patterns
+- [ ] Integration with streaming platforms
+- [ ] Cross-platform compatibility research
 
-### Modificar Rangos HSV
-Los rangos se calibran con el calibrador estático y se cargan automáticamente desde `hsv_ranges_optimized.txt`:
-```bash
-python utils/static_hsv_calibrator.py
-```
+## 📄 License
 
-### Ajustar Polígonos
-```bash
-python polygon_calibrator.py
-```
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-### Verificar Configuración Actual
-El sistema carga automáticamente los valores optimizados. Para verificar:
-```bash
-python utils/polygon_visualizer.py
-```
+## 🙏 Acknowledgments
 
-## 📝 Notas Importantes
-
-- **Método actual**: **HSV Color Filtering** (NO template matching)
-- **Templates PNG**: Solo se usan como referencia visual
-- **Rendimiento**: Sistema optimizado para 47.5+ FPS
-- **Polígonos**: Perfectamente calibrados y posicionados
-- **Persistencia**: Configuraciones se guardan automáticamente
-
-## 🤝 Contribuir
-
-Al hacer cambios al sistema:
-1. Verificar con `python utils/check_system_status.py`
-2. Visualizar polígonos con `python utils/polygon_visualizer.py`
-3. Medir impacto con `python utils/quick_benchmark.py`
-4. Calibrar colores (si es necesario) con `python utils/static_hsv_calibrator.py`
-5. Documentar cambios en este README
-
-## 🧠 Próximos Pasos: Aprendizaje por Refuerzo (RL)
-
-El objetivo final del proyecto es crear un agente de IA que aprenda a jugar a Guitar Hero de forma autónoma. La base actual de detección y visualización es el "sistema sensorial" de la IA. Los siguientes pasos se centrarán en construir el "cerebro".
-
-### 1. Desarrollar el Entorno (`GuitarHeroEnv`)
-
-Crearemos una clase que actúe como un puente entre la IA y el juego, siguiendo una estructura similar a la de las librerías de RL como `gymnasium`.
-
-- **`reset()`**: Reiniciará el juego (o la canción) y devolverá el estado inicial.
-- **`step(action)`**:
-    - Recibirá una **acción** del agente (ej: "pulsar la tecla F").
-    - Ejecutará la acción en el juego.
-    - Capturará el nuevo frame y detectará el nuevo **estado** (la posición de las notas).
-    - Leerá el cambio en la puntuación para calcular la **recompensa**.
-    - Devolverá `(nuevo_estado, recompensa, finalizado)`.
-
-### 2. Construir el Agente (`DQNAgent`)
-
-Será la IA en sí misma, utilizando un modelo de Deep Q-Network (DQN).
-
-- **Espacio de Estados**: Un vector numérico simple que represente las notas en cada uno de los 6 carriles (ej: `[0, 1, 0, 2, 0, 0]` donde 1=amarillo, 2=verde).
-- **Espacio de Acciones**: Un conjunto de acciones discretas que el agente puede tomar (ej: 7 acciones -> no hacer nada, pulsar S, D, F, J, K, o L).
-- **Red Neuronal (Modelo)**: Una red neuronal que aprenderá a predecir la recompensa futura esperada (Q-value) para cada acción posible dado un estado.
-
-### 3. Implementar el Bucle de Entrenamiento
-
-Un script principal que orquestará la interacción:
-1. El agente observará un **estado** del entorno.
-2. Elegirá una **acción** basada en su política actual (y algo de aleatoriedad para explorar).
-3. El entorno procesará la acción y devolverá un **nuevo estado** y una **recompensa**.
-4. El agente almacenará esta experiencia y la usará para **aprender** y mejorar su red neuronal.
-5. El proceso se repetirá miles de veces hasta que el agente aprenda a maximizar la recompensa (su puntuación).
+- OpenCV community for computer vision tools
+- PyTorch team for deep learning framework
+- Guitar Hero community for inspiration
+- Various research papers and tutorials that guided this learning journey
 
 ---
 
-**🎸 ¡Sistema optimizado para máximo rendimiento con HSV Color Filtering!**
+**🎸 A personal exploration of Computer Vision and AI applied to rhythm games!**

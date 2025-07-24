@@ -1,0 +1,37 @@
+# Reinforcement AI Approach - Dependencies
+# =======================================
+# Dependencies for reinforcement learning and AI system
+
+# Computer Vision and Image Processing
+opencv-python>=4.11.0
+numpy>=2.1.0
+Pillow>=11.0.0
+
+# Screen Capture
+mss>=10.0.0
+pyautogui>=0.9.54
+
+# Artificial Intelligence and Machine Learning
+torch>=2.7.0
+torchvision>=0.22.0
+torchaudio>=2.7.0
+
+# OCR (Text Recognition)
+easyocr>=1.7.2
+pytesseract>=0.3.13
+
+# Global Hotkeys
+keyboard>=0.13.5
+
+# System Utilities
+colorama>=0.4.6
+PyYAML>=6.0.2
+
+# Environment Interface for RL
+gymnasium>=0.29.1
+
+# Low-level interaction (for games)
+pydirectinput
+
+# For specific installation with CUDA 12.8 (RTX 5090):
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128 

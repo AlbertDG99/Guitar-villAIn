@@ -1,0 +1,23 @@
+# Color Pattern Approach - Dependencies
+# ====================================
+# Dependencies for color detection and screen capture system
+
+# Computer Vision and Image Processing
+opencv-python>=4.11.0
+numpy>=2.1.0
+Pillow>=11.0.0
+
+# Screen Capture
+mss>=10.0.0
+pyautogui>=0.9.54
+
+# OCR (Text Recognition)
+easyocr>=1.7.2
+pytesseract>=0.3.13
+
+# System Utilities
+colorama>=0.4.6
+PyYAML>=6.0.2
+
+# Low-level interaction (for games)
+pydirectinput 
