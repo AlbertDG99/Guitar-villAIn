@@ -123,14 +123,14 @@ Notes:
 
 ### Reinforcement Learning approach – per step
 ```mermaid
-flowchart TD
-    A[env.step(action)] --> B[Apply action (key or no-op)]
+graph TD
+    A[env.step] --> B[Apply action]
     B --> C[Get latest frame]
-    C --> D[HSV masks + polygons -> 6-lane state]
-    D --> E[OCR combo/score in parallel]
+    C --> D[HSV masks + polygons]
+    D --> E[OCR combo/score]
     E --> F[Compute reward]
     F --> G[Return obs/reward/done]
-    G --> H[DQN agent: select_action/train]
+    G --> H[DQN agent]
 ```
 
 ## 📂 Project Structure
