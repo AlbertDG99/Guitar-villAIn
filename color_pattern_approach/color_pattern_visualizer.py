@@ -18,6 +18,7 @@ from mss import mss
 
 from screen_capture import ScreenCapture
 from config_manager import ConfigManager
+from metrics import PerformanceTracker
 
 
 class PolygonVisualizer:
@@ -62,6 +63,9 @@ class PolygonVisualizer:
 
         self.input_enabled = True
         self.setup_input_system()
+
+        # Performance tracking
+        self.perf = PerformanceTracker(report_interval_seconds=1.0)
 
     def setup_input_system(self):
         """Configure input system and key mappings."""
@@ -399,6 +403,7 @@ class PolygonVisualizer:
         }
 
         # --- PREPARATION ---
+        frame_start_t = time.perf_counter()
         output_frame = frame.copy()
 
         # --- REAL PARALLELISM: Each thread processes a complete lane ---
@@ -541,6 +546,10 @@ class PolygonVisualizer:
         # FPS text
         cv2.putText(output_frame, fps_text, (fps_x, fps_y),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+
+        # Report latency
+        latency_ms = (time.perf_counter() - frame_start_t) * 1000.0
+        self.perf.on_frame_processed(latency_ms)
 
         return output_frame, detections
 

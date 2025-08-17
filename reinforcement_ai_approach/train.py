@@ -12,6 +12,8 @@ from collections import deque
 import keyboard
 import numpy as np
 
+from src.utils.config_manager import ConfigManager
+
 stop_training_flag = False
 latest_info = None
 
@@ -54,10 +56,29 @@ def main():
     try:
         from src.ai.env import GuitarHeroEnv
         from src.ai.dqn_agent import DQNAgent
-        
+
+        # Setup wizard trigger on capture resolution change
+        cfg = ConfigManager()
+        try:
+            stored_w = cfg.getint('CAPTURE', 'game_width')
+            stored_h = cfg.getint('CAPTURE', 'game_height')
+            confirmed_w = cfg.getint('CAPTURE', 'last_confirmed_width') if cfg.config.has_option('CAPTURE', 'last_confirmed_width') else -1
+            confirmed_h = cfg.getint('CAPTURE', 'last_confirmed_height') if cfg.config.has_option('CAPTURE', 'last_confirmed_height') else -1
+            if confirmed_w != stored_w or confirmed_h != stored_h:
+                print("🧭 Detected capture resolution change. Launching setup wizard...")
+                try:
+                    from utils import setup_wizard
+                    setup_wizard.main()
+                except Exception as e:
+                    print(f"⚠️ Setup wizard failed: {e}")
+        except Exception as e:
+            print(f"⚠️ Could not verify capture resolution: {e}")
+
         env = GuitarHeroEnv()
-        state_size = 6  # Number of lanes
-        action_size = 7  # 6 keys + no-op
+        # Observation: 6 greens + 6 yellows + 1 combo
+        state_size = 13
+        # Action space: combinations of 6 keys = 2^6
+        action_size = 64
         
         agent = DQNAgent(state_size=state_size, action_size=action_size)
         
@@ -68,7 +89,7 @@ def main():
         print(f"❌ Error initializing environment/agent: {e}")
         return
     
-    print("🎮 Training Loop:")
+    print("🎮 Training Loop (OCR-first):")
     
     stop_thread = threading.Thread(target=stop_on_q_press, daemon=True)
     log_thread = threading.Thread(target=log_status_periodically, daemon=True)
@@ -116,7 +137,7 @@ def main():
                       f"Reward: {episode_reward:.2f}, "
                       f"Final Combo: {info.get('combo', 0)}")
             
-            if episode % 100 == 0:
+            if episode % 50 == 0:
                 agent.save_model(f"models/checkpoint_episode_{episode}.pth")
         
         print(f"\n✅ Training completed after {episode} episodes")

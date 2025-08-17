@@ -3,22 +3,23 @@
 # Dependencies for reinforcement learning and AI system
 
 # Computer Vision and Image Processing
-opencv-python>=4.11.0
-numpy>=2.1.0
-Pillow>=11.0.0
+opencv-python>=4.9.0
+numpy>=1.26.0
+Pillow>=10.0.0
 
 # Screen Capture
-mss>=10.0.0
+mss>=9.0.1
 pyautogui>=0.9.54
 
 # Artificial Intelligence and Machine Learning
-torch>=2.7.0
-torchvision>=0.22.0
-torchaudio>=2.7.0
+# Suggest installing torch with CUDA separately per GPU; keep placeholders minimal here
+torch>=2.2.0
+torchvision>=0.17.0
+torchaudio>=2.2.0
 
 # OCR (Text Recognition)
-easyocr>=1.7.2
-pytesseract>=0.3.13
+easyocr>=1.7.1
+pytesseract>=0.3.10
 
 # Global Hotkeys
 keyboard>=0.13.5
@@ -31,7 +32,7 @@ PyYAML>=6.0.2
 gymnasium>=0.29.1
 
 # Low-level interaction (for games)
-pydirectinput
+pydirectinput>=1.0.4
 
 # For specific installation with CUDA 12.8 (RTX 5090):
 # pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128 

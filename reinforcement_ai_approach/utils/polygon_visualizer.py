@@ -18,8 +18,12 @@ class PolygonVisualizer:
 
     def __init__(self):
         self.config_manager = ConfigManager()
-        self.screen_capture = ScreenCapture(self.config_manager)
-        self.score_detector = ScoreDetector()
+        # Initialize capture with dict config and start capture thread
+        capture_cfg = self.config_manager.get_capture_area_config()
+        self.screen_capture = ScreenCapture(capture_cfg)
+        self.screen_capture.start()
+        # Initialize score detector with configured region
+        self.score_detector = ScoreDetector(self.config_manager.get_score_region())
 
         hsv_ranges = self.config_manager.get_hsv_ranges()
         self.morphology_params = self.config_manager.get_morphology_params()
@@ -152,9 +156,9 @@ class PolygonVisualizer:
 
         return lane_results
 
-    def update_score_async(self, score_image: np.ndarray):
-        """Function to execute score detection in a separate thread."""
-        score = self.score_detector.update_score(score_image)
+    def update_score_async(self, frame: np.ndarray):
+        """Function to execute score detection in a separate thread using full frame."""
+        score = self.score_detector.update_score(frame)
         if score > self.last_known_score:
             self.last_known_score = score
 
@@ -299,8 +303,9 @@ class PolygonVisualizer:
                 h = self.score_region['height']
                 score_roi = frame[y:y + h, x:x + w]
 
+                # Pass full frame for internal ROI crop in ScoreDetector
                 self.score_thread = threading.Thread(
-                    target=self.update_score_async, args=(score_roi,))
+                    target=self.update_score_async, args=(frame,))
                 self.score_thread.start()
 
         score_roi_config = self.config_manager.get_score_region()
@@ -447,7 +452,7 @@ class PolygonVisualizer:
         try:
             while True:
                 if not paused:
-                    frame = self.screen_capture.capture_frame()
+                    frame = self.screen_capture.get_latest_frame()
 
                 if frame is not None:
                     output_frame, detections = self.process_frame(frame)
@@ -483,6 +488,8 @@ class PolygonVisualizer:
             cv2.destroyAllWindows()
             if self.score_thread and self.score_thread.is_alive():
                 self.score_thread.join()
+            # Ensure capture thread stops
+            self.screen_capture.stop()
 
 
 def main():

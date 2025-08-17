@@ -32,6 +32,11 @@ class ScreenCapture:
         self.mss_instance = None
         self.use_mss = self._initialize_mss()
 
+        # FPS tracking
+        self.fps = 0.0
+        self.frame_count = 0
+        self.last_fps_time = time.time()
+
     def _initialize_mss(self) -> bool:
         """Attempts to initialize MSS for fast capture."""
         try:

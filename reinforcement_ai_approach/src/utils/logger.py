@@ -81,6 +81,7 @@ class PerformanceLogger:
     def __init__(self, name: str = "Performance"):
         self.logger = setup_logger(name, log_file="logs/performance.log")
         self.metrics: Dict[str, List[float]] = {}
+        self.last_report_s: float = 0.0
 
     def log_metric(self, metric_name: str, value: float, unit: str = ""):
         """Log a performance metric."""
@@ -100,6 +101,18 @@ class PerformanceLogger:
     def log_fps(self, fps: float):
         """Log frames per second (FPS)."""
         self.log_metric("fps", fps, "fps")
+
+    def maybe_console_report(self, min_interval_s: float = 1.0):
+        """Occasional concise console report of averages."""
+        import time
+        now = time.time()
+        if now - self.last_report_s < min_interval_s:
+            return
+        self.last_report_s = now
+        fps_avg = self.get_average("fps")
+        lat_avg = self.get_average("latency_ms")
+        if fps_avg or lat_avg:
+            print(f"[Perf] fps={fps_avg:.1f} avg_latency_ms={lat_avg:.2f}")
 
     def get_average(self, metric_name: str) -> float:
         """Get the average of a logged metric."""

@@ -1,5 +1,50 @@
 # 🧠 Reinforcement AI Approach
 
+This subproject implements a reinforcement learning agent to play the rhythm minigame using vision-based observations.
+
+## Status
+- Current mode: OCR-first (vision-only) version.
+- TODO: Automatic song restart sequence (requires exact key/click flow).
+- TODO: Memory-read variant as a third approach (research branch), read-only, with safety switch.
+
+## Setup Wizard
+Run automatically when capture resolution changes, or manually via:
+
+```bash
+python -m reinforcement_ai_approach.utils.setup_wizard
+```
+
+The wizard configures:
+- Capture region
+- Lane polygons (S, D, F, J, K, L)
+- SCORE and COMBO ROIs
+- SONG TIME ROI (for episode end detection)
+
+## Training
+```bash
+cd reinforcement_ai_approach
+pip install -r requirements.txt
+python train.py
+```
+
+- Observation: 6 green + 6 yellow binary indicators + normalized internal combo (13 dims)
+- Actions: 64 combinations (2^6)
+- Reward shaping:
+  - +1 for tapping yellow (once per note, cooldown)
+  - +0.1 per frame for correctly holding green
+  - -5 strong penalty on combo break
+  - -0.05 spam penalty per pressed key without visible note
+
+## Screenshots
+Place your screenshots in `assets/screenshots/` at the repo root and reference them in the main README.
+
+## Notes
+- Song end is detected via OCR on the configured SONG TIME ROI.
+- The restart sequence is a TODO pending the exact key/click flow.
+- A future memory-read approach will be explored as a separate, optional variant.
+
+# 🧠 Reinforcement AI Approach
+
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.7+-red.svg)](https://pytorch.org/)
 [![Gymnasium](https://img.shields.io/badge/Gymnasium-0.29+-green.svg)](https://gymnasium.farama.org/)

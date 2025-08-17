@@ -149,6 +149,7 @@ class DQNAgent:  # pylint: disable=too-many-instance-attributes
         self.device = torch.device(device_name)
 
         self.dueling_dqn = config.get('dueling_dqn', True)
+        self.double_dqn = config.get('double_dqn', True)
         self.prioritized_replay = config.get('prioritized_replay', True)
 
         NetworkModule = DuelingDQN if self.dueling_dqn else DQN
@@ -164,7 +165,8 @@ class DQNAgent:  # pylint: disable=too-many-instance-attributes
         self.optimizer = torch.optim.AdamW(
             self.policy_net.parameters(),
             lr=self.learning_rate)
-        self.criterion = nn.MSELoss()
+        # Use per-sample loss for importance-sampling weights
+        self.criterion = nn.SmoothL1Loss(reduction='none')
 
         if self.prioritized_replay:
             self.memory = PrioritizedReplayBuffer(
@@ -230,16 +232,21 @@ class DQNAgent:  # pylint: disable=too-many-instance-attributes
         current_q_values = self.policy_net(states).gather(1, actions.unsqueeze(1))
 
         with torch.no_grad():
-            if self.dueling_dqn:
+            if self.double_dqn:
+                # Double DQN: action selection on policy net, evaluation on target net
                 next_actions = self.policy_net(next_states).argmax(1)
                 next_q_values = self.target_net(next_states).gather(1, next_actions.unsqueeze(1))
             else:
-                next_q_values = self.target_net(next_states).max(1)[0]
+                # Standard DQN: max over target net
+                next_q_values = self.target_net(next_states).max(1, keepdim=True)[0]
 
-        target_q_values = rewards.unsqueeze(1) + (self.gamma * next_q_values * ~dones.unsqueeze(1))
+        target_q_values = rewards.unsqueeze(1) + (self.gamma * next_q_values * (~dones.unsqueeze(1)))
 
-        loss = self.criterion(current_q_values, target_q_values)
-        loss = (loss * weights).mean()
+        # Per-sample MSE for weighting
+        loss_per_sample = self.criterion(current_q_values, target_q_values)
+        # If gather produced (batch,1), reduce last dim
+        loss_per_sample = loss_per_sample.view(-1)
+        loss = (loss_per_sample * weights).mean()
 
         self.optimizer.zero_grad()
         
@@ -253,8 +260,8 @@ class DQNAgent:  # pylint: disable=too-many-instance-attributes
 
         if self.prioritized_replay:
             with torch.no_grad():
-                td_errors = abs(current_q_values - target_q_values).cpu().numpy()
-                self.memory.update_priorities(indices, td_errors.flatten())
+                td_errors = (current_q_values - target_q_values).abs().view(-1).cpu().numpy()
+                self.memory.update_priorities(indices, td_errors)
 
         self.step_count += 1
 

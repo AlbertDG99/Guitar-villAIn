@@ -43,8 +43,6 @@ class ScoreDetector:
 
         return thresh_image
 
-        return thresh_image
-
     def update_score(self, frame: np.ndarray) -> int:
         """
         Takes the complete game frame, crops the score region,

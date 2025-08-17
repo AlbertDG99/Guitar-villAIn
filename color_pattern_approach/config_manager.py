@@ -1,6 +1,4 @@
-"""
-Configuration manager for the Guitar Hero AI system.
-"""
+"""Configuration manager for the Guitar Hero AI system."""
 
 import ast
 from typing import Dict, Any, Tuple, List, Optional

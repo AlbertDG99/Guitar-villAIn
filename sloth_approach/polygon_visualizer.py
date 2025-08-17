@@ -18,8 +18,8 @@ from concurrent.futures import ThreadPoolExecutor
 import random
 from mss import mss
 
-from screen_capture import ScreenCapture
-from config_manager import ConfigManager
+from color_pattern_approach.screen_capture import ScreenCapture
+from color_pattern_approach.config_manager import ConfigManager
 
 
 class PolygonVisualizer:
@@ -27,8 +27,9 @@ class PolygonVisualizer:
     
     def __init__(self):
         # --- Ruta de configuracion robusta ---
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        config_path = os.path.join(script_dir, 'config.ini')
+        # Use the shared configuration from color_pattern_approach
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        config_path = os.path.join(project_root, 'color_pattern_approach', 'config.ini')
         
         # --- Inicializacion de Componentes ---
         self.config_manager = ConfigManager(config_path=config_path)
