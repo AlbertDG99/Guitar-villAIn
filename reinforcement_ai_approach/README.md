@@ -1,6 +1,20 @@
 # 🧠 Reinforcement AI Approach
 
-This subproject implements a reinforcement learning agent to play the rhythm minigame using vision-based observations.
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.7+-red.svg)](https://pytorch.org/)
+[![Gymnasium](https://img.shields.io/badge/Gymnasium-0.29+-green.svg)](https://gymnasium.farama.org/)
+
+Advanced reinforcement learning system for Guitar Hero automation using Deep Q-Networks (DQN) and modern AI techniques.
+
+## 🎯 Overview
+
+This subproject implements a sophisticated reinforcement learning agent that learns to play Guitar Hero autonomously. It uses state-of-the-art techniques including:
+
+- **Deep Q-Networks (DQN)** with Double and Dueling variants
+- **Prioritized Experience Replay** for efficient learning
+- **Mixed Precision Training** for GPU optimization
+- **Real-time Computer Vision** for note detection
+- **Gymnasium Environment** for standardized RL interface
 
 ## Status
 - Current mode: OCR-first (vision-only) version.
@@ -43,24 +57,6 @@ Place your screenshots in `assets/screenshots/` at the repo root and reference t
 - The restart sequence is a TODO pending the exact key/click flow.
 - A future memory-read approach will be explored as a separate, optional variant.
 
-# 🧠 Reinforcement AI Approach
-
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.7+-red.svg)](https://pytorch.org/)
-[![Gymnasium](https://img.shields.io/badge/Gymnasium-0.29+-green.svg)](https://gymnasium.farama.org/)
-
-Advanced reinforcement learning system for Guitar Hero automation using Deep Q-Networks (DQN) and modern AI techniques.
-
-## 🎯 Overview
-
-This subproject implements a sophisticated reinforcement learning agent that learns to play Guitar Hero autonomously. It uses state-of-the-art techniques including:
-
-- **Deep Q-Networks (DQN)** with Double and Dueling variants
-- **Prioritized Experience Replay** for efficient learning
-- **Mixed Precision Training** for GPU optimization
-- **Real-time Computer Vision** for note detection
-- **Gymnasium Environment** for standardized RL interface
-
 ## 🏗️ Architecture
 
 ### Core Components
@@ -88,6 +84,21 @@ reinforcement_ai_approach/
 ├── train.py                   # Training orchestration
 ├── combo_calibrator.py        # Combo region calibration
 └── requirements.txt           # Dependencies
+```
+
+### Training Flow
+
+```mermaid
+flowchart TD
+    A[env.step(action)] --> B[Apply action to game]
+    B --> C[Capture screen frame]
+    C --> D[Detect notes via HSV]
+    D --> E[Extract state vector]
+    E --> F[Calculate reward]
+    F --> G[Store experience]
+    G --> H[Train DQN agent]
+    H --> I[Update target network]
+    I --> A
 ```
 
 ## 🚀 Quick Start
