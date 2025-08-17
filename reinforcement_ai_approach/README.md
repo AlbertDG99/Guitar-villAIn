@@ -89,15 +89,15 @@ reinforcement_ai_approach/
 ### Training Flow
 
 ```mermaid
-flowchart TD
-    A[env.step(action)] --> B[Apply action to game]
-    B --> C[Capture screen frame]
-    C --> D[Detect notes via HSV]
-    D --> E[Extract state vector]
+graph TD
+    A[env.step] --> B[Apply action]
+    B --> C[Capture frame]
+    C --> D[Detect notes]
+    D --> E[Extract state]
     E --> F[Calculate reward]
     F --> G[Store experience]
-    G --> H[Train DQN agent]
-    H --> I[Update target network]
+    G --> H[Train DQN]
+    H --> I[Update target]
     I --> A
 ```
 
