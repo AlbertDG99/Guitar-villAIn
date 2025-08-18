@@ -16,9 +16,9 @@ import numpy as np
 import pydirectinput
 from mss import mss
 
-from screen_capture import ScreenCapture
-from config_manager import ConfigManager
-from metrics import PerformanceTracker
+from .screen_capture import ScreenCapture
+from .config_manager import ConfigManager
+from .metrics import PerformanceTracker
 
 
 class PolygonVisualizer:
