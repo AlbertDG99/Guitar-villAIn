@@ -83,7 +83,7 @@ class PolygonVisualizer:
         self.yellow_press_probability = 1
         self.green_press_probability = 1
         self.cooldown_duration = 0.15
-        self.green_note_cooldown = 0.3
+        self.green_note_cooldown = 0.1
         self.yellow_duration_range = (0.08, 0.15)
         self.fast_green_double_tap_duration = (0.05, 0.1)
 
@@ -109,7 +109,7 @@ class PolygonVisualizer:
             self.keys_pressed[lane] = False
 
         except Exception as e:
-            print(f"❌ Error en pulsación de {key}: {e}")
+            print(f"ERROR Error en pulsación de {key}: {e}")
         finally:
             with self.press_thread_lock:
                 if lane in self.active_press_threads:
@@ -121,9 +121,9 @@ class PolygonVisualizer:
             time.sleep(random.uniform(*self.action_delay_range))
             pydirectinput.keyDown(key)
             self.keys_pressed[lane] = True
-            print(f"🟢 HOLD START en carril {lane} (Tecla: {key})")
+            print(f"GREEN HOLD START en carril {lane} (Tecla: {key})")
         except Exception as e:
-            print(f"❌ Error al iniciar hold verde de {key}: {e}")
+            print(f"ERROR Error al iniciar hold verde de {key}: {e}")
             self.green_hold_active[lane] = False
             self.keys_pressed[lane] = False
 
@@ -133,14 +133,14 @@ class PolygonVisualizer:
             time.sleep(random.uniform(*self.action_delay_range))
             pydirectinput.keyUp(key)
             self.keys_pressed[lane] = False
-            print(f"🔴 HOLD END en carril {lane} (Tecla: {key})")
+            print(f"RED HOLD END en carril {lane} (Tecla: {key})")
         except Exception as e:
-            print(f"❌ Error al finalizar hold verde de {key}: {e}")
+            print(f"ERROR Error al finalizar hold verde de {key}: {e}")
             self.keys_pressed[lane] = False
 
     def panic_release_all_keys(self):
         """Emergency function: release all keys immediately."""
-        print("🚨 PÁNICO: Soltando todas las teclas...")
+        print("PANIC PANICO: Soltando todas las teclas...")
         try:
             for lane, key in self.lane_to_key.items():
                 pydirectinput.keyUp(key)
@@ -150,9 +150,9 @@ class PolygonVisualizer:
             with self.press_thread_lock:
                 self.active_press_threads.clear()
 
-            print("✅ Todas las teclas liberadas correctamente")
+            print("OK Todas las teclas liberadas correctamente")
         except Exception as e:
-            print(f"❌ Error en función de pánico: {e}")
+            print(f"ERROR Error en función de pánico: {e}")
 
     def handle_yellow_note(self, lane: str):
         """Handle yellow note detection with anti-ban logic."""
@@ -193,7 +193,7 @@ class PolygonVisualizer:
             if self.keys_pressed[lane]:
                 return
 
-            print(f"⚡️ Double green in {lane}. Executing fast tap.")
+            print(f"LIGHTNING Double green in {lane}. Executing fast tap.")
 
             key = self.lane_to_key[lane]
             duration = random.uniform(*self.fast_green_double_tap_duration)
@@ -294,18 +294,25 @@ class PolygonVisualizer:
             self.green_hsv['lower'],
             self.green_hsv['upper'])
 
-        close_size = self.morphology_params['close_size']
-        dilate_size = self.morphology_params['dilate_size']
+        # Simplified green detection - same as yellow
+        close_size_green = max(3, self.morphology_params['close_size'] // 2)  # Same as yellow
+        dilate_size_green = max(2, self.morphology_params['dilate_size'] // 2)  # Same as yellow
 
-        close_kernel = np.ones((close_size, close_size), np.uint8)
+        close_kernel_green = np.ones(
+            (close_size_green, close_size_green), np.uint8)
         green_mask = cv2.morphologyEx(
-            green_mask, cv2.MORPH_CLOSE, close_kernel)
+            green_mask, cv2.MORPH_CLOSE, close_kernel_green)
 
-        dilate_kernel = np.ones((dilate_size, dilate_size), np.uint8)
-        green_mask = cv2.dilate(green_mask, dilate_kernel, iterations=1)
+        dilate_kernel_green = np.ones(
+            (dilate_size_green, dilate_size_green), np.uint8)
+        green_mask = cv2.dilate(
+            green_mask,
+            dilate_kernel_green,
+            iterations=1)
 
         open_kernel = np.ones((3, 3), np.uint8)
-        green_mask = cv2.morphologyEx(green_mask, cv2.MORPH_OPEN, open_kernel)
+        green_mask = cv2.morphologyEx(
+            green_mask, cv2.MORPH_OPEN, open_kernel)
 
         green_contours, _ = cv2.findContours(
             green_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -349,8 +356,8 @@ class PolygonVisualizer:
             self.yellow_hsv['lower'],
             self.yellow_hsv['upper'])
 
-        close_size_yellow = max(3, close_size // 2)
-        dilate_size_yellow = max(2, dilate_size // 2)
+        close_size_yellow = max(3, self.morphology_params['close_size'] // 2)
+        dilate_size_yellow = max(2, self.morphology_params['dilate_size'] // 2)
 
         close_kernel_yellow = np.ones(
             (close_size_yellow, close_size_yellow), np.uint8)
@@ -586,10 +593,10 @@ class PolygonVisualizer:
 
         # AI system status
         if self.input_enabled:
-            ai_text = "🤖 AI ACTIVE | Anti-Ban: ON"
+            ai_text = "ROBOT AI ACTIVE | Anti-Ban: ON"
             ai_color = (0, 255, 0)  # Green
         else:
-            ai_text = "👁️ VISUALIZATION ONLY"
+            ai_text = "EYE VISUALIZATION ONLY"
             ai_color = (0, 255, 255)  # Yellow
 
         cv2.putText(frame, ai_text, (10, 75),
@@ -607,8 +614,8 @@ class PolygonVisualizer:
     def run(self):
         """Main bot execution loop."""
         print("\n" + "=" * 50)
-        print("🚀 Guitar Hero AI Bot started.")
-        print("🔥 REAL key presses activated!")
+        print("ROCKET Guitar Hero AI Bot started.")
+        print("FIRE REAL key presses activated!")
         print("Press 'Q' in the capture window to exit.")
         print("Press 'SPACE' in the capture window for panic function (release all keys).")
         print("=" * 50 + "\n")
@@ -635,7 +642,7 @@ class PolygonVisualizer:
 
                 if target_monitor:
                     print(
-                        f"🖥️ Moving and maximizing window on monitor ({target_monitor['left']}, {target_monitor['top']})")
+                        f"MONITOR Moving and maximizing window on monitor ({target_monitor['left']}, {target_monitor['top']})")
                     cv2.moveWindow(
                         window_name,
                         target_monitor['left'],
@@ -645,10 +652,10 @@ class PolygonVisualizer:
                         target_monitor['width'],
                         target_monitor['height'])
                 else:
-                    print("⚠️ No monitor detected. Using default size.")
+                    print("WARNING No monitor detected. Using default size.")
 
         except Exception as e:
-            print(f"❌ Error configuring window on secondary monitor: {e}")
+            print(f"ERROR Error configuring window on secondary monitor: {e}")
             print("   Will continue with default window.")
 
         self.screen_capture.start()
@@ -670,18 +677,18 @@ class PolygonVisualizer:
                     self.panic_release_all_keys()
 
         except KeyboardInterrupt:
-            print("\n🛑 User interruption detected.")
+            print("\nSTOP User interruption detected.")
         finally:
             self.cleanup()
 
     def cleanup(self):
         """Cleans all resources before exiting."""
-        print("🔄 Cleaning resources...")
+        print("REFRESH Cleaning resources...")
         self.running = False
         self.screen_capture.stop()
         self.panic_release_all_keys()  # Ensures all keys are released
         cv2.destroyAllWindows()
-        print("✅ Cleanup complete. Goodbye!")
+        print("OK Cleanup complete. Goodbye!")
 
 
 def main():
@@ -691,7 +698,7 @@ def main():
         visualizer.run()
 
     except Exception as e:
-        print(f"\n❌ A fatal error has occurred: {e}")
+        print(f"\nERROR A fatal error has occurred: {e}")
         traceback.print_exc()
         input("\nPress ENTER to exit.")
 
