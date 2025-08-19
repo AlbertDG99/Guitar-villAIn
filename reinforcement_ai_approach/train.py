@@ -13,6 +13,7 @@ import keyboard
 import numpy as np
 
 from src.utils.config_manager import ConfigManager
+from src.utils.live_monitor import LiveMonitor
 
 stop_training_flag = False
 latest_info = None
@@ -75,12 +76,13 @@ def main():
             print(f"⚠️ Could not verify capture resolution: {e}")
 
         env = GuitarHeroEnv()
-        # Observation: 6 greens + 6 yellows + 1 combo
-        state_size = 13
+        # Observation: 6 greens + 6 yellows
+        state_size = 12
         # Action space: combinations of 6 keys = 2^6
         action_size = 64
         
         agent = DQNAgent(state_size=state_size, action_size=action_size)
+        monitor = LiveMonitor(window_name='RL Monitor', key_names=env.key_bindings)
         
         print(f"✅ State size: {state_size}")
         print(f"✅ Action size: {action_size}")
@@ -108,13 +110,15 @@ def main():
                 
             episode_reward = 0
             step = 0
+            episode_start_time = time.time()
             
-            while not stop_training_flag and step < 5000:  # Max steps per episode
+            while not stop_training_flag and step < 5000:  # Safety cap; env truncates at 60s
                 action = agent.select_action(state)
                 next_state, reward, terminated, truncated, info = env.step(action)
                 
                 agent.store_experience(state, action, reward, next_state, terminated or truncated)
-                agent.train_step()
+                loss_value = agent.train_step()
+                agent.decay_epsilon()
                 
                 state = next_state
                 episode_reward += reward
@@ -125,6 +129,21 @@ def main():
                     'state': state,
                     'reward': reward
                 }
+
+                # Update live monitor UI
+                try:
+                    monitor.update(
+                        state=state,
+                        action_index=action,
+                        combo=info.get('combo', 0),
+                        score=info.get('score', 0),
+                        reward=reward,
+                        elapsed=time.time()-episode_start_time,
+                        epsilon=agent.epsilon,
+                        loss=(loss_value if loss_value is not None else None)
+                    )
+                except Exception:
+                    pass
                 
                 if terminated or truncated:
                     break
@@ -149,6 +168,10 @@ def main():
         print(f"\n❌ Training error: {e}")
     finally:
         agent.save_model("models/final_model.pth")
+        try:
+            monitor.close()
+        except Exception:
+            pass
         env.close()
 
 

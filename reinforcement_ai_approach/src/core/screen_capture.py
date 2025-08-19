@@ -29,7 +29,6 @@ class ScreenCapture:
         self.is_running = False
         self.capture_thread = None
 
-        self.mss_instance = None
         self.use_mss = self._initialize_mss()
 
         # FPS tracking
@@ -38,16 +37,13 @@ class ScreenCapture:
         self.last_fps_time = time.time()
 
     def _initialize_mss(self) -> bool:
-        """Attempts to initialize MSS for fast capture."""
+        """Checks MSS availability (instance created in capture thread)."""
         try:
-            import mss
-            self.mss_instance = mss.mss()
-            self.logger.info(
-                "✅ MSS initialized correctly for threaded capture.")
+            import mss  # noqa: F401
+            self.logger.info("✅ MSS available for capture.")
             return True
         except ImportError:
-            self.logger.warning(
-                "⚠️ MSS not available, using PyAutoGUI (slower).")
+            self.logger.warning("⚠️ MSS not available, using PyAutoGUI (slower).")
             return False
 
     def start(self):
@@ -68,8 +64,7 @@ class ScreenCapture:
         if self.capture_thread and self.capture_thread.is_alive():
             self.capture_thread.join(timeout=1.0)
 
-        if self.use_mss and self.mss_instance:
-            self.mss_instance.close()
+        # No global MSS instance to close; handled in thread
 
         self.logger.info("⏹️ Screen capture thread stopped.")
 
@@ -82,10 +77,20 @@ class ScreenCapture:
             'height': self.capture_height
         }
 
+        # Create MSS instance inside the thread (Windows requirement)
+        sct = None
+        if self.use_mss:
+            try:
+                import mss
+                sct = mss.mss()
+            except Exception as e:
+                self.logger.warning(f"MSS init failed in capture thread: {e}. Falling back to PyAutoGUI.")
+                sct = None
+
         while self.is_running:
             try:
-                if self.use_mss and self.mss_instance:
-                    screenshot = self.mss_instance.grab(region)
+                if self.use_mss and sct is not None:
+                    screenshot = sct.grab(region)
                     frame = np.array(screenshot)
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
                 else:
@@ -95,15 +100,25 @@ class ScreenCapture:
                             self.capture_top,
                             self.capture_width,
                             self.capture_height))
-                    frame = cv2.cvtColor(
-                        np.array(screenshot), cv2.COLOR_RGB2BGR)
+                    frame = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
 
                 with self.frame_lock:
                     self.latest_frame = frame
 
             except Exception as e:
                 self.logger.error(f"Error in capture loop: {e}")
-                self.is_running = False  # Stop in case of serious error
+                # Try to recreate MSS once if it failed
+                if self.use_mss:
+                    try:
+                        import mss
+                        sct = mss.mss()
+                        continue
+                    except Exception:
+                        self.logger.warning("Switching to PyAutoGUI due to repeated MSS failure.")
+                        self.use_mss = False
+                        sct = None
+                        continue
+                self.is_running = False
                 break
             time.sleep(0.001)
 

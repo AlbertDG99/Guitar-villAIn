@@ -193,7 +193,7 @@ class DQNAgent:  # pylint: disable=too-many-instance-attributes
             return np.random.randint(0, self.action_size)
         
         with torch.no_grad():
-            state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
+            state_tensor = torch.as_tensor(state, dtype=torch.float32, device=self.device).unsqueeze(0)
             q_values = self.policy_net(state_tensor)
             return q_values.argmax().item()
 

@@ -43,9 +43,9 @@ class GuitarHeroEnv(gym.Env):
 
         # Use Discrete(2^num_keys) to allow simultaneous key presses (combinations)
         self.action_space = spaces.Discrete(2 ** self.num_keys)
-        # Observation: 6 greens (0/1) + 6 yellows (0/1) + normalized internal combo
+        # Observation: 6 greens (0/1) + 6 yellows (0/1)
         self.observation_space = spaces.Box(
-            low=0, high=1, shape=(self.num_keys * 2 + 1,), dtype=np.float32
+            low=0, high=1, shape=(self.num_keys * 2,), dtype=np.float32
         )
 
         self.screen_capturer = ScreenCapture(capture_config)
@@ -53,25 +53,33 @@ class GuitarHeroEnv(gym.Env):
             self.config_manager.get_combo_region())
         self.score_detector = ScoreDetector(
             self.config_manager.get_score_region())
-        self.song_time_region = self.config_manager.get_song_time_region()
         self.note_polygons = self.config_manager.get_note_lane_polygons_relative()
         self.hsv_ranges = self.config_manager.get_hsv_ranges()
+        self.morphology_params = self.config_manager.get_morphology_params()
+        # Precompute ROI and lane masks (cropped) to reduce per-frame work
+        self.lanes_roi = self._compute_lanes_roi(self.note_polygons, capture_config)
+        self.lane_masks_roi = self._precompute_lane_masks_roi(self.note_polygons, self.lanes_roi)
+        # Throttle OCR updates to reduce latency
+        self._score_update_interval = 0.3
+        self._combo_update_interval = 0.3
+        self._last_score_update_time = 0.0
+        self._last_combo_update_time = 0.0
+        self._score_cache = 0
+        self._combo_cache = 1
 
         # Key press state (0/1 per key)
         self.key_states = np.zeros(self.num_keys, dtype=int)
         self.prev_combo = 0
         self.prev_score = 0
-        # Internal combo and per-lane yellow hit cooldown frames to avoid duplicate counts
-        self.internal_combo = 0
-        self.yellow_hit_cooldown_frames = np.zeros(self.num_keys, dtype=int)
-        self.green_hold_required = np.zeros(self.num_keys, dtype=int)  # 1 while green should be held
         self.frame_index = 0
         self.frame = None
         self.episode_start_time = 0
-        self.max_episode_duration = ai_config.get(
-            'max_episode_duration_secs', 90)
+        # Fixed 60s episode duration per requirements
+        self.max_episode_duration = 60
+        self.episode_count = 0
 
-        self.executor = ThreadPoolExecutor(max_workers=3)
+        self.executor = ThreadPoolExecutor(max_workers=4)
+        self.lane_executor = ThreadPoolExecutor(max_workers=min(self.num_keys, 6))
         self.screen_capturer.start()
         self._last_frame_start = None
 
@@ -83,19 +91,6 @@ class GuitarHeroEnv(gym.Env):
         time.sleep(0.01)
 
         note_states, current_combo, current_score = self._get_all_detections()
-        # End-of-song detection via OCR on configured time region (optional)
-        if self.song_time_region is not None:
-            if self._is_song_finished(self.frame, self.song_time_region):
-                truncated = True
-                info = {'score': current_score, 'combo': current_combo, 'song_end': True}
-                observation = np.array(list(note_states[0]) + list(note_states[1]) + [min(self.internal_combo, 50)/50.0], dtype=np.float32)
-                frame_latency_ms = ( _t.perf_counter() - self._last_frame_start) * 1000.0
-                performance_logger.log_fps(self._compute_fps())
-                performance_logger.log_metric("latency_ms", frame_latency_ms, "ms")
-                performance_logger.maybe_console_report(1.0)
-                self._log_status(observation)
-                # TODO: Call self._restart_song_sequence() here when the sequence is defined
-                return observation, 0.0, False, truncated, info
 
         if note_states is None or current_combo is None or current_score is None:
             self.logger.warning("Detection failure, returning neutral state.")
@@ -103,14 +98,13 @@ class GuitarHeroEnv(gym.Env):
             observation = np.zeros(self.observation_space.shape, dtype=np.float32)
             return observation, 0.0, False, False, {}
 
-        # Build observation: 6 greens + 6 yellows + internal combo (normalized)
+        # Build observation: 6 greens + 6 yellows
         greens, yellows = note_states
-        combo_norm = min(self.internal_combo, 50) / 50.0
-        observation = np.array(list(greens) + list(yellows) + [combo_norm], dtype=np.float32)
+        observation = np.array(list(greens) + list(yellows), dtype=np.float32)
 
-        reward = self._calculate_reward_shaped(greens, yellows, action_vector)
+        reward = self._calculate_reward(greens, yellows, action_vector, current_combo, current_score)
 
-        terminated = self.prev_combo > 2 and current_combo == 1
+        terminated = False
         truncated = (
             time.time() -
             self.episode_start_time) > self.max_episode_duration
@@ -133,11 +127,15 @@ class GuitarHeroEnv(gym.Env):
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed)
         self.logger.info("Resetting environment...")
-        self.episode_start_time = time.time()
+        # Episode start sequence per requirements
+        if self.episode_count == 0:
+            self._start_song()
+        else:
+            self._restart_song_sequence()
 
-        self._hard_reset_song()
-
+        # Small delay to ensure UI reacts, then start timer from here
         time.sleep(0.5)
+        self.episode_start_time = time.time()
         note_states, combo, score = self._get_all_detections()
 
         if note_states is None or combo is None or score is None:
@@ -152,12 +150,10 @@ class GuitarHeroEnv(gym.Env):
         self.prev_score = score
         self.prev_combo = combo
         self.key_states = np.zeros(self.num_keys, dtype=int)
-        self.internal_combo = 0
-        self.yellow_hit_cooldown_frames[:] = 0
-        self.green_hold_required[:] = 0
         self.frame_index = 0
+        self.episode_count += 1
 
-        initial_obs = np.array(list(note_states[0]) + list(note_states[1]) + [0.0], dtype=np.float32)
+        initial_obs = np.array(list(note_states[0]) + list(note_states[1]), dtype=np.float32)
         return initial_obs, {'score': score, 'combo': combo}
 
     def _log_status(self, state: np.ndarray):
@@ -174,8 +170,8 @@ class GuitarHeroEnv(gym.Env):
             self.fps_counter = 0
             self.last_log_time = current_time
 
-            note_states_str = ' '.join(map(str, state[:-1].astype(int)))
-            combo = int(state[-1])
+            note_states_str = ' '.join(map(str, state.astype(int)))
+            combo = int(self.prev_combo)
 
             print(f"FPS: {self.last_fps:<5.2f} | "
                   f"State: [Notes: {note_states_str}] [Combo: {combo:<3}] | "
@@ -207,39 +203,30 @@ class GuitarHeroEnv(gym.Env):
             self.logger.error(f"Error releasing keys: {e}")
 
         self.executor.shutdown(wait=True)
+        try:
+            self.lane_executor.shutdown(wait=True)
+        except Exception:
+            pass
         if self.screen_capturer:
             self.screen_capturer.stop()
         cv2.destroyAllWindows()
         self.logger.info("Environment resources released.")
 
-    def _is_song_finished(self, frame: np.ndarray, roi: dict) -> bool:
-        """Use OCR on song time ROI to detect end of song. If it returns 00:00 or disappears for a while, consider finished."""
+    def _start_song(self):
+        """Press ENTER to start the song/loop."""
         try:
-            import pytesseract
-            x, y, w, h = roi['x'], roi['y'], roi['width'], roi['height']
-            img = frame[y:y+h, x:x+w]
-            if img.size == 0:
-                return False
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            _, bw = cv2.threshold(gray, 180, 255, cv2.THRESH_BINARY_INV)
-            text = pytesseract.image_to_string(bw, config='--psm 7 -c tessedit_char_whitelist=0123456789:').strip()
-            if not text:
-                return False
-            digits = ''.join(ch for ch in text if ch.isdigit() or ch == ':')
-            if digits.count(':') >= 1 and (digits.endswith('0') or digits.endswith('00')):
-                # rough check for 00:00 or 0:0
-                parts = [p for p in digits.split(':') if p.isdigit()]
-                if len(parts) >= 2 and int(parts[-1]) == 0 and int(parts[-2]) == 0:
-                    return True
-            return False
+            pydirectinput.press('enter')
         except Exception:
-            return False
+            pass
 
     def _restart_song_sequence(self):
-        """TODO: Implement automatic restart of the song via keyboard/mouse sequence.
-        This should simulate the exact key/click flow required by the game UI.
-        """
-        pass
+        """Restart sequence: F5 then ENTER after 2s (per requirements)."""
+        try:
+            pydirectinput.press('f5')
+            time.sleep(2.0)
+            pydirectinput.press('enter')
+        except Exception:
+            pass
 
     def _execute_action_vector(self, action_vector: np.ndarray):
         """Presses/releases keys based on 6-bit action vector (0/1 per key)."""
@@ -275,119 +262,164 @@ class GuitarHeroEnv(gym.Env):
             return None, None, None
 
         future_notes = self.executor.submit(self._detect_notes_by_color)
-        future_combo = self.executor.submit(
-            self.combo_detector.detect, self.frame)
-        future_score = self.executor.submit(
-            self.score_detector.update_score, self.frame)
 
-        return future_notes.result(), future_combo.result(), future_score.result()
+        # Throttled OCR for combo and score
+        now = time.time()
+        if self.combo_detector and (now - self._last_combo_update_time > self._combo_update_interval):
+            try:
+                self._combo_cache = int(self.combo_detector.detect(self.frame))
+            except Exception:
+                pass
+            self._last_combo_update_time = now
+
+        if self.score_detector and (now - self._last_score_update_time > self._score_update_interval):
+            try:
+                self._score_cache = int(self.score_detector.update_score(self.frame))
+            except Exception:
+                pass
+            self._last_score_update_time = now
+
+        return future_notes.result(), self._combo_cache, self._score_cache
 
     def _detect_notes_by_color(self) -> tuple[list[int], list[int]]:
+        """Lane-wise color detection using HSV + morphology with per-lane threading."""
         greens = [0] * self.num_keys
         yellows = [0] * self.num_keys
         if not self.hsv_ranges or not self.note_polygons or self.frame is None:
             return greens, yellows
 
-        hsv_frame = cv2.cvtColor(self.frame, cv2.COLOR_BGR2HSV)
-        green_mask = self._get_color_mask(hsv_frame, 'green')
-        yellow_mask = self._get_color_mask(hsv_frame, 'yellow')
+        # Crop to lanes ROI for faster processing
+        x0, y0, w, h = self.lanes_roi
+        roi = self.frame[y0:y0 + h, x0:x0 + w]
+        if roi.size == 0:
+            return greens, yellows
 
+        hsv_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+
+        def _detect_mask_roi(color: str) -> np.ndarray:
+            lower = np.array([
+                self.hsv_ranges[color]['h_min'],
+                self.hsv_ranges[color]['s_min'],
+                self.hsv_ranges[color]['v_min']
+            ])
+            upper = np.array([
+                self.hsv_ranges[color]['h_max'],
+                self.hsv_ranges[color]['s_max'],
+                self.hsv_ranges[color]['v_max']
+            ])
+            mask = cv2.inRange(hsv_roi, lower, upper)
+            close_size = self.morphology_params['close_size']
+            dilate_size = self.morphology_params['dilate_size']
+            if color == 'yellow':
+                close_size = max(3, close_size // 2)
+                dilate_size = max(2, dilate_size // 2)
+            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((close_size, close_size), np.uint8))
+            mask = cv2.dilate(mask, np.ones((dilate_size, dilate_size), np.uint8), iterations=1)
+            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+            return mask
+
+        green_mask_roi = _detect_mask_roi('green')
+        yellow_mask_roi = _detect_mask_roi('yellow')
+
+        def process_lane(idx_lane: int, lane_key: str):
+            lane_mask = self.lane_masks_roi.get(lane_key)
+            if lane_mask is None:
+                return idx_lane, 0, 0
+            g_present = cv2.countNonZero(cv2.bitwise_and(green_mask_roi, lane_mask)) > 0
+            if g_present:
+                return idx_lane, 1, 0
+            y_present = cv2.countNonZero(cv2.bitwise_and(yellow_mask_roi, lane_mask)) > 0
+            return idx_lane, 0, 1 if y_present else 0
+
+        tasks = []
         for i, key in enumerate(self.key_bindings):
             lane_key = key.upper()
-            if lane_key in self.note_polygons:
-                poly = np.array(self.note_polygons[lane_key], dtype=np.int32)
-                lane_mask = np.zeros(hsv_frame.shape[:2], dtype=np.uint8)
-                cv2.fillPoly(lane_mask, [poly], (255,))
+            if lane_key in self.lane_masks_roi:
+                tasks.append(self.lane_executor.submit(process_lane, i, lane_key))
 
-                masked_green = cv2.bitwise_and(green_mask, green_mask, mask=lane_mask)
-                masked_yellow = cv2.bitwise_and(yellow_mask, yellow_mask, mask=lane_mask)
+        for future in tasks:
+            idx, g, y = future.result()
+            greens[idx] = g
+            yellows[idx] = y
 
-                greens[i] = 1 if np.any(masked_green) else 0
-                yellows[i] = 1 if np.any(masked_yellow) else 0
         return greens, yellows
 
     def _get_color_mask(self, hsv_frame: np.ndarray, color: str) -> np.ndarray:
-        """Applies HSV filter for a color."""
+        """Deprecated: kept for compatibility."""
         ranges = self.hsv_ranges.get(color)
         if not ranges:
             return np.zeros(hsv_frame.shape[:2], dtype=np.uint8)
-
         lower = np.array([ranges['h_min'], ranges['s_min'], ranges['v_min']])
         upper = np.array([ranges['h_max'], ranges['s_max'], ranges['v_max']])
-        mask = cv2.inRange(hsv_frame, lower, upper)
-        return mask
+        return cv2.inRange(hsv_frame, lower, upper)
 
-    def _calculate_reward_shaped(self, greens: list[int], yellows: list[int], action_vector: np.ndarray) -> float:
-        """Shaped reward based on detection and action alignment.
-        - Reward pressing when yellow present (one-time per note, with cooldown)
-        - Reward holding when green present (penalize not holding)
-        - Strong penalty when expected press/hold is missed (combo break)
-        - Penalize spamming keys when no note is present
-        """
-        hit_reward = 1.0
-        hold_reward = 0.1
-        miss_penalty = -2.0
-        spam_penalty = -0.05
-        strong_combo_break_penalty = -5.0
+    def _compute_lanes_roi(self, polygons: dict, capture_cfg: dict) -> tuple[int, int, int, int]:
+        xs = []
+        ys = []
+        for pts in polygons.values():
+            for (x, y) in pts:
+                xs.append(x)
+                ys.append(y)
+        if not xs or not ys:
+            return 0, 0, int(capture_cfg['width']), int(capture_cfg['height'])
+        min_x = max(0, min(xs))
+        min_y = max(0, min(ys))
+        max_x = min(int(capture_cfg['width']) - 1, max(xs))
+        max_y = min(int(capture_cfg['height']) - 1, max(ys))
+        pad = 4
+        x0 = max(0, min_x - pad)
+        y0 = max(0, min_y - pad)
+        x1 = min(int(capture_cfg['width']), max_x + pad)
+        y1 = min(int(capture_cfg['height']), max_y + pad)
+        return x0, y0, max(1, x1 - x0), max(1, y1 - y0)
 
+    def _precompute_lane_masks_roi(self, polygons: dict, lanes_roi: tuple[int, int, int, int]) -> dict:
+        x0, y0, w, h = lanes_roi
+        masks = {}
+        for lane_key, pts in polygons.items():
+            if not pts:
+                continue
+            mask = np.zeros((h, w), dtype=np.uint8)
+            shifted = np.array([(x - x0, y - y0) for (x, y) in pts], dtype=np.int32)
+            cv2.fillPoly(mask, [shifted], (255,))
+            masks[lane_key] = mask
+        return masks
+
+    def _calculate_reward(self, greens: list[int], yellows: list[int], action_vector: np.ndarray, current_combo: int, current_score: int) -> float:
+        """Reward prioritizing maintaining large combos, then score gains, with mild action shaping."""
         reward = 0.0
-        combo_broken = False
 
-        # Update per-lane logic
+        # Prioritize combo maintenance
+        if self.prev_combo >= 3 and current_combo == 1:
+            reward -= 5.0  # strong penalty for breaking a built combo
+        elif current_combo > self.prev_combo:
+            # reward increases as combo grows
+            reward += 0.2 * min(current_combo - self.prev_combo, 5)
+        else:
+            # small living bonus proportional to sustained combo
+            reward += 0.02 * min(current_combo, 50) / 50.0
+
+        # Score shaping (small weight to avoid overshadowing combo)
+        if current_score is not None and self.prev_score is not None:
+            delta_score = max(0, current_score - self.prev_score)
+            reward += 0.001 * delta_score
+
+        # Action shaping: encourage pressing when yellow note is present and holding on green
         for i in range(self.num_keys):
             is_green = greens[i] == 1
             is_yellow = yellows[i] == 1
             is_pressed = action_vector[i] == 1
 
-            # Green logic: must hold while present
-            if is_green:
-                self.green_hold_required[i] = 1
-                if is_pressed:
-                    reward += hold_reward
-                else:
-                    reward += miss_penalty
-                    combo_broken = True
-            else:
-                # If green no longer present, holding not required
-                self.green_hold_required[i] = 0
-
-            # Yellow logic: one hit per note with simple cooldown window
-            if is_yellow:
-                if self.yellow_hit_cooldown_frames[i] == 0 and is_pressed:
-                    reward += hit_reward
-                    self.internal_combo += 1
-                    # Start cooldown to avoid counting same note in consecutive frames
-                    self.yellow_hit_cooldown_frames[i] = 3
-            else:
-                # When yellow not visible, let cooldown decay
-                if self.yellow_hit_cooldown_frames[i] > 0:
-                    self.yellow_hit_cooldown_frames[i] -= 1
-
-            # Spam penalty: pressing when neither green nor yellow present
+            if is_yellow and is_pressed:
+                reward += 0.3
+            if is_green and is_pressed:
+                reward += 0.05
             if not is_green and not is_yellow and is_pressed:
-                reward += spam_penalty
-
-        # Strong penalty on combo break
-        if combo_broken:
-            reward += strong_combo_break_penalty
-            self.internal_combo = 0
+                reward -= 0.02  # light anti-spam
 
         self.frame_index += 1
-        return reward
+        return float(reward)
 
     def _hard_reset_song(self):
-        """Executes the song reset sequence in the game."""
-        self.logger.info("Executing song reset...")
-        pydirectinput.press('esc')
-        time.sleep(1.0)
-
-        capture_area = self.config_manager.get_capture_area_config()
-        if capture_area:
-            center_x = capture_area['left'] + capture_area['width'] // 2
-            center_y = capture_area['top'] + capture_area['height'] // 2
-            pydirectinput.moveTo(center_x, center_y)
-            time.sleep(0.1)
-            pydirectinput.click()
-
-        time.sleep(2.0)
-        self.logger.info("Song reset completed.")
+        """Deprecated: Not used. Kept for compatibility."""
+        self.logger.info("Hard reset is deprecated; using F5+Enter restart sequence.")

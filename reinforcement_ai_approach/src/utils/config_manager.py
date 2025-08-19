@@ -153,29 +153,8 @@ class ConfigManager:
             self.logger.warning(
                 "Section [COMBO] not found in config.ini. Combo detection will not work.")
             return None
-
-    def get_song_time_region(self) -> Optional[Dict[str, int]]:
-        """Gets the song time region (relative to the game window)."""
-        if not self.config.has_section('SONG'):
-            self.logger.warning(
-                "Section [SONG] not found in config.ini. Song time detection disabled.")
-            return None
-        try:
-            region_str = self.get('SONG', 'song_time_region')
-            region_dict = ast.literal_eval(region_str)
-            return {
-                'x': int(region_dict['left']),
-                'y': int(region_dict['top']),
-                'width': int(region_dict['width']),
-                'height': int(region_dict['height'])
-            }
-        except (configparser.NoOptionError, SyntaxError, NameError, KeyError) as e:
-            self.logger.error(
-                f"Error reading 'song_time_region' from config.ini: {e}")
-            return None
         try:
             region_str = self.get('COMBO', 'combo_region')
-            # Safer parsing than eval
             region_dict = ast.literal_eval(region_str)
             return {
                 'x': int(region_dict['left']),
@@ -187,6 +166,11 @@ class ConfigManager:
             self.logger.error(
                 f"Error reading 'combo_region' from config.ini: {e}")
             return None
+
+    def get_song_time_region(self) -> Optional[Dict[str, int]]:
+        """Deprecated: song time region not used anymore."""
+        return None
+        
 
     def get_capture_area_config(self):
         try:
