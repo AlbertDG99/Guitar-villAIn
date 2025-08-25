@@ -1,0 +1,41 @@
+# Guitar VillAIn - Unified Dependencies
+# ===================================
+# Combined requirements for all approaches in the project
+
+# Computer Vision and Image Processing
+opencv-python>=4.9.0
+numpy>=1.26.0
+Pillow>=10.0.0
+
+# Screen Capture
+mss>=9.0.1
+pyautogui>=0.9.54
+
+# Artificial Intelligence and Machine Learning
+# Note: Install torch with CUDA support separately if needed
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+torch>=2.2.0
+torchvision>=0.17.0
+torchaudio>=2.2.0
+
+# OCR (Text Recognition)
+easyocr>=1.7.1
+pytesseract>=0.3.10
+
+# Global Hotkeys
+keyboard>=0.13.5
+
+# Environment Interface for RL
+gymnasium>=0.29.1
+
+# System Utilities
+colorama>=0.4.6
+PyYAML>=6.0.2
+
+# Low-level interaction (for games)
+pydirectinput>=1.0.4
+
+# Configuration and setup
+setuptools>=65.0.0
+wheel>=0.38.0
+

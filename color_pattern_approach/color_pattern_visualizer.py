@@ -26,9 +26,7 @@ class PolygonVisualizer:
 
     def __init__(self):
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        config_path = os.path.join(script_dir, 'config.ini')
-
-        self.config_manager = ConfigManager(config_path=config_path)
+        self.config_manager = ConfigManager()
         self.screen_capture = ScreenCapture(self.config_manager)
 
         hsv_ranges = self.config_manager.get_hsv_ranges()

@@ -1,26 +1,43 @@
 """Optimized screen capture system for Guitar Hero."""
 
-import time
+import logging
 import threading
+import time
+
 import cv2
 import numpy as np
 import pyautogui
-import configparser
 
-from src.utils.logger import setup_logger
+# Try to import mss at module level
+try:
+    import mss
+    MSS_AVAILABLE = True
+except ImportError:
+    MSS_AVAILABLE = False
+
+# Basic logging configuration to see errors
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s | %(name)s:%(lineno)d | %(levelname)s | %(message)s')
 
 
 class ScreenCapture:
     """Handles screen capture in a dedicated thread for maximum performance."""
 
-    def __init__(self, capture_config: dict):
-        self.logger = setup_logger('ScreenCapture')
-        self.config = capture_config
+    def __init__(self, config_manager):
+        self.logger = logging.getLogger('ScreenCapture')
+        self.config_manager = config_manager
 
-        self.capture_left = int(self.config['left'])
-        self.capture_top = int(self.config['top'])
-        self.capture_width = int(self.config['width'])
-        self.capture_height = int(self.config['height'])
+        capture_config = self.config_manager.get_capture_area_config()
+        if not capture_config:
+            self.logger.error(
+                "❌ Capture configuration is empty. Cannot start.")
+            raise ValueError("Capture configuration cannot be None.")
+
+        self.capture_left = int(capture_config['left'])
+        self.capture_top = int(capture_config['top'])
+        self.capture_width = int(capture_config['width'])
+        self.capture_height = int(capture_config['height'])
 
         self.latest_frame = np.zeros(
             (self.capture_height, self.capture_width, 3), dtype=np.uint8)
@@ -29,22 +46,22 @@ class ScreenCapture:
         self.is_running = False
         self.capture_thread = None
 
-        self.use_mss = self._initialize_mss()
-
-        # FPS tracking
-        self.fps = 0.0
+        # Initialize FPS tracking attributes
+        self.fps = 0
         self.frame_count = 0
         self.last_fps_time = time.time()
 
-    def _initialize_mss(self) -> bool:
-        """Checks MSS availability (instance created in capture thread)."""
-        try:
-            import mss  # noqa: F401
-            self.logger.info("✅ MSS available for capture.")
+        self.use_mss = self._check_mss_availability()
+
+    def _check_mss_availability(self) -> bool:
+        """Checks if MSS is available for capture."""
+        if MSS_AVAILABLE:
+            self.logger.info(
+                "✅ MSS is available and will be used for capture.")
             return True
-        except ImportError:
-            self.logger.warning("⚠️ MSS not available, using PyAutoGUI (slower).")
-            return False
+        self.logger.warning(
+            "⚠️ MSS not available, using PyAutoGUI (slower).")
+        return False
 
     def start(self):
         """Starts the capture thread in the background."""
@@ -77,48 +94,58 @@ class ScreenCapture:
             'height': self.capture_height
         }
 
-        # Create MSS instance inside the thread (Windows requirement)
-        sct = None
+        # --- MSS capture logic (preferred) ---
         if self.use_mss:
             try:
-                import mss
-                sct = mss.mss()
-            except Exception as e:
-                self.logger.warning(f"MSS init failed in capture thread: {e}. Falling back to PyAutoGUI.")
-                sct = None
+                with mss.mss() as sct:
+                    self.logger.info("🚀 Capture started with MSS in thread.")
+                    while self.is_running:
+                        screenshot = sct.grab(region)
+                        frame = np.array(screenshot)
+                        frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
 
+                        if frame.size == 0:
+                            self.logger.warning(
+                                "⚠️ Frame captured with MSS is empty. Skipping.")
+                            continue
+
+                        with self.frame_lock:
+                            self.latest_frame = frame
+
+                        time.sleep(0.001)
+                return  # End thread execution if loop ends
+            except Exception as e:
+                self.logger.error(f"❌ Fatal error during MSS capture: {e}.")
+                self.is_running = False
+                # Don't return, so it can try with PyAutoGUI if still running
+
+        # --- PyAutoGUI capture logic (fallback) ---
+        if not self.is_running:
+            return  # Exit if thread was stopped by MSS error
+
+        self.logger.info(
+            "🚀 Using PyAutoGUI for capture (fallback or primary method).")
         while self.is_running:
             try:
-                if self.use_mss and sct is not None:
-                    screenshot = sct.grab(region)
-                    frame = np.array(screenshot)
-                    frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
-                else:
-                    screenshot = pyautogui.screenshot(
-                        region=(
-                            self.capture_left,
-                            self.capture_top,
-                            self.capture_width,
-                            self.capture_height))
-                    frame = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
+                screenshot = pyautogui.screenshot(
+                    region=(
+                        self.capture_left,
+                        self.capture_top,
+                        self.capture_width,
+                        self.capture_height))
+                frame = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
+
+                if frame.size == 0:
+                    self.logger.warning(
+                        "⚠️ Frame captured with PyAutoGUI is empty. Skipping.")
+                    continue
 
                 with self.frame_lock:
                     self.latest_frame = frame
 
             except Exception as e:
-                self.logger.error(f"Error in capture loop: {e}")
-                # Try to recreate MSS once if it failed
-                if self.use_mss:
-                    try:
-                        import mss
-                        sct = mss.mss()
-                        continue
-                    except Exception:
-                        self.logger.warning("Switching to PyAutoGUI due to repeated MSS failure.")
-                        self.use_mss = False
-                        sct = None
-                        continue
-                self.is_running = False
+                self.logger.error(f"❌ Error in PyAutoGUI capture loop: {e}")
+                self.is_running = False  # Stop in case of serious error
                 break
             time.sleep(0.001)
 
@@ -216,10 +243,11 @@ class ScreenCapture:
         self.capture_width = width
         self.capture_height = height
 
-        self.config['left'] = str(left)
-        self.config['top'] = str(top)
-        self.config['width'] = str(width)
-        self.config['height'] = str(height)
+        # Save to configuration
+        self.config_manager.config.set('CAPTURE', 'game_left', str(left))
+        self.config_manager.config.set('CAPTURE', 'game_top', str(top))
+        self.config_manager.config.set('CAPTURE', 'game_width', str(width))
+        self.config_manager.config.set('CAPTURE', 'game_height', str(height))
 
         self.logger.info("📐 Region updated: %dx%d at (%d, %d)",
                          width, height, left, top)

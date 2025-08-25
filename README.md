@@ -34,61 +34,77 @@ This project explores:
 
 ```
 Guitar-villAIn/
-├── color_pattern_approach/
+├── 📂 color_pattern_approach/          # Approach de detección por color
 │   ├── color_pattern_visualizer.py
 │   ├── screen_capture.py
 │   ├── config_manager.py
 │   ├── metrics.py
 │   ├── config.ini
 │   └── requirements.txt
-├── reinforcement_ai_approach/
-│   ├── src/
-│   │   ├── ai/
+├── 📂 reinforcement_ai_approach/       # Approach de Reinforcement Learning
+│   ├── 📂 src/
+│   │   ├── 📂 ai/
 │   │   │   ├── dqn_agent.py
 │   │   │   └── env.py
-│   │   ├── core/
+│   │   ├── 📂 core/
 │   │   │   ├── screen_capture.py
 │   │   │   ├── score_detector.py
 │   │   │   └── combo_detector.py
-│   │   └── utils/
+│   │   └── 📂 utils/
 │   │       ├── config_manager.py
 │   │       ├── helpers.py
 │   │       └── logger.py
-│   ├── utils/
+│   ├── 📂 utils/
 │   │   ├── polygon_visualizer.py
+│   │   ├── setup_wizard.py
 │   │   └── static_hsv_calibrator_plus.py
-│   ├── config/
+│   ├── 📂 config/
 │   │   └── config.ini
+│   ├── input_preview.py
 │   ├── train.py
 │   └── requirements.txt
-├── sloth_approach/
-│   └── polygon_visualizer.py
-└── lanzar_color_pattern.bat
+├── 🔧 launch_*.py                     # Scripts launcher
+├── 📋 requirements.txt               # Dependencias principales
+├── 📂 logs/                          # Logs del sistema
+└── 📖 README.md                      # Documentación
 ```
 
-## 🚀 Install & run
+## 🚀 Instalación y Uso
 
-### Requirements
+### Requisitos
 - Python 3.11+
-- Windows 10/11 (Administrator privileges required for key presses)
+- Windows 10/11 (requiere privilegios de administrador para simular teclas)
+- Guitar Hero ejecutándose en modo ventana
 
-### Run
-
-Color/Polygon Approach
+### Instalación Rápida
 ```powershell
-# PowerShell as Administrator, from repo root
-cd color_pattern_approach
+# Desde la raíz del proyecto
 pip install -r requirements.txt
-python -m color_pattern_approach.color_pattern_visualizer
 ```
 
-Reinforcement Learning Approach (experimental)
-```powershell
-# PowerShell as Administrator, from repo root
-cd reinforcement_ai_approach
-pip install -r requirements.txt
-python train.py
+### Ejecutar
+
+**Configurar Regiones de Captura:**
+```bash
+python launch_setup_wizard.py
 ```
+
+**Color/Polygon Approach:**
+```bash
+python launch_color_pattern.py
+```
+
+**Reinforcement Learning Approach:**
+```bash
+python launch_input_preview.py
+python reinforcement_ai_approach/train.py
+```
+
+### Scripts Launcher
+Los launchers permiten ejecutar desde cualquier directorio:
+- `launch_setup_wizard.py` - Configuración visual de regiones
+- `launch_input_preview.py` - Preview del approach de RL
+- `launch_color_pattern.py` - Visualizer del approach de color
 
 ## 🧭 Process diagrams
 
@@ -176,25 +192,56 @@ Guitar-villAIn/
 - Each approach has its own `config.ini` defining capture, lane polygons, HSV ranges and auxiliary parameters.
 - The RL approach additionally defines agent hyperparameters and OCR regions.
 
-## 🛠️ Tools
-- Detection visualizer (both approaches) to debug polygons and masks.
-- HSV calibrator (RL approach) to tune ranges and morphology.
- - Setup wizard (RL approach) to quickly reconfigure capture/polygons/ROIs.
+## 🛠️ Herramientas
 
-## 🧪 Quick guide
+**Scripts Launcher (Ejecutar desde cualquier directorio):**
+- `launch_setup_wizard.py` - Configuración visual de regiones de captura
+- `launch_input_preview.py` - Preview del approach de Reinforcement Learning
+- `launch_color_pattern.py` - Visualizer del approach de Color Pattern
 
-Color/Polygon
-```powershell
-cd color_pattern_approach
-python -m color_pattern_approach.color_pattern_visualizer
+**Herramientas de Debug:**
+- `polygon_visualizer.py` - Visualizar polígonos de detección
+- `static_hsv_calibrator_plus.py` - Calibrar rangos HSV
+- `combo_calibrator.py` - Calibrar detección de combos
+
+## 🧪 Inicio Rápido
+
+**Configuración Inicial (Obligatorio):**
+```bash
+python launch_setup_wizard.py
 ```
 
-RL (experimental)
-```powershell
-cd reinforcement_ai_approach
-python train.py
-python utils/polygon_visualizer.py
+**Color/Polygon Approach:**
+```bash
+python launch_color_pattern.py
 ```
+
+**Reinforcement Learning (Experimental):**
+```bash
+python launch_input_preview.py  # Para visualizar con OCR de score
+python reinforcement_ai_approach/train.py  # Para entrenar
+```
+
+**Herramientas Adicionales:**
+```bash
+python reinforcement_ai_approach/utils/polygon_visualizer.py
+python reinforcement_ai_approach/utils/static_hsv_calibrator_plus.py
+```
+
+## ✨ Características Especiales
+
+### 🔍 **OCR Mejorado del Score**
+- **Múltiples métodos de thresholding** para mejor detección
+- **Diferentes modos PSM de Tesseract** para mayor precisión
+- **Visualización en tiempo real** de la región del score
+- **Thumbnail de debugging** para ver el procesamiento OCR
+- **Detección robusta** de números con múltiples estrategias
+
+### 🎯 **Visualización Avanzada**
+- **Cajas delimitadoras** para todas las regiones detectadas
+- **Información de debug** en tiempo real
+- **Estado del OCR** con indicadores visuales
+- **Vista previa del procesamiento** de imágenes
 
 ## 📷 Screenshots
 Place images in `assets/screenshots/`. Example usage in docs:

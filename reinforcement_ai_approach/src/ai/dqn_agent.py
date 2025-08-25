@@ -131,7 +131,7 @@ class DQNAgent:  # pylint: disable=too-many-instance-attributes
         self.state_size = state_size
         self.action_size = action_size
 
-        self.config_manager = ConfigManager(config_path='config/config.ini')
+        self.config_manager = ConfigManager(config_path=str(Path(__file__).parents[2] / 'config' / 'config.ini'))
         config = self.config_manager.get_ai_config()
 
         self.learning_rate = config.get('learning_rate', 0.001)

@@ -11,13 +11,17 @@ import ast
 class ConfigManager:
     """System configuration manager. Fails fast if there are errors."""
 
-    def __init__(self, config_path='config/config.ini'):
+    def __init__(self, config_path=None):
         """
         Initializes the ConfigManager and loads the configuration.
 
         Args:
             config_path (str): Path to the configuration file.
         """
+        if config_path is None:
+            # Default path relative to the reinforcement_ai_approach directory
+            config_path = Path(__file__).parents[2] / 'config' / 'config.ini'
+
         self.config_file = Path(config_path)
         self.config = configparser.ConfigParser(
             interpolation=None,

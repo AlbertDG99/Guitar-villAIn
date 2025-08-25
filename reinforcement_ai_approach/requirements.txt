@@ -27,6 +27,7 @@ keyboard>=0.13.5
 # System Utilities
 colorama>=0.4.6
 PyYAML>=6.0.2
+psutil>=5.9.0  # System resource monitoring
 
 # Environment Interface for RL
 gymnasium>=0.29.1

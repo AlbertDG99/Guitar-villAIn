@@ -20,7 +20,7 @@ class GuitarHeroEnv(gym.Env):
     """
     metadata = {'render_modes': ['human'], 'render_fps': 30}
 
-    def __init__(self, config_path='config/config.ini', render_mode=None):
+    def __init__(self, config_path=None, render_mode=None):
         super().__init__()
         self.logger = setup_logger('GuitarHeroEnv')
 
